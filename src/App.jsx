@@ -235,10 +235,23 @@ export default function App() {
   const [manualStack, setManualStack] = useState([]); // [{id, title}]
   const [manualTitle, setManualTitle] = useState("메뉴얼");
   // schedule
-  const [scheduleData, setScheduleData] = useState(null);
+  const [scheduleData, setScheduleData] = useState(() => {
+    try {
+      const c = JSON.parse(localStorage.getItem("yori2_schedule_cache") || "null");
+      return (c && c.monthIdx === new Date().getMonth()) ? c.data : null;
+    } catch { return null; }
+  });
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [scheduleError, setScheduleError] = useState("");
-  const [scheduleWeekIndex, setScheduleWeekIndex] = useState(0);
+  const [scheduleWeekIndex, setScheduleWeekIndex] = useState(() => {
+    try {
+      const c = JSON.parse(localStorage.getItem("yori2_schedule_cache") || "null");
+      if (!c || c.monthIdx !== new Date().getMonth()) return 0;
+      const today = new Date();
+      const idx = c.data.weeks.findIndex(w => w.dates.some(d => d.day === today.getDate() && d.month === today.getMonth() + 1));
+      return idx >= 0 ? idx : 0;
+    } catch { return 0; }
+  });
 
   useEffect(() => {
     const mapRow = row => ({
@@ -494,6 +507,7 @@ export default function App() {
       if (data.error) throw new Error(data.error);
       const parsed = parseScheduleData(data);
       if (!parsed) throw new Error("파싱 실패");
+      try { localStorage.setItem("yori2_schedule_cache", JSON.stringify({ monthIdx, data: parsed })); } catch (_) {}
       setScheduleData(parsed);
       const today = new Date();
       const idx = parsed.weeks.findIndex(w => w.dates.some(d => d.day === today.getDate() && d.month === today.getMonth() + 1));
@@ -536,6 +550,7 @@ export default function App() {
       localStorage.setItem("yori2_user", JSON.stringify(userToStore));
       setPage("home");
       loadManualPage(MANUAL_ROOT_ID, "메뉴얼", null);
+      loadSchedule(new Date().getMonth());
     }
   }
 
@@ -549,6 +564,7 @@ export default function App() {
       localStorage.setItem("yori2_user", JSON.stringify(userToStore));
       setPage("home");
       loadManualPage(MANUAL_ROOT_ID, "메뉴얼", null);
+      loadSchedule(new Date().getMonth());
       setPwPopup(false); setPendingUser(null); setPwInput(""); setPwError("");
     } else {
       setPwError(t("비밀번호가 틀렸습니다.", "Falsches Passwort."));
