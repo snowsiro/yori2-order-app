@@ -519,21 +519,32 @@ export default function App() {
 
   const NOTION_PROXY = "https://oitrivgffkdhkedhydqw.supabase.co/functions/v1/notion-proxy";
 
+  async function fetchBlocks(blockId) {
+    const res = await fetch(NOTION_PROXY + "?page_id=" + blockId + "&type=blocks", {
+      headers: { "Authorization": "Bearer " + SUPABASE_ANON_KEY, "apikey": SUPABASE_ANON_KEY },
+      cache: "no-store",
+    });
+    const data = await res.json();
+    return data.results || [];
+  }
+
   async function loadManualPage(pageId, title, pushStack) {
     setManualLoading(true);
     setManualError("");
     try {
-      const res = await fetch(NOTION_PROXY + "?page_id=" + pageId + "&type=blocks", {
-        headers: { "Authorization": "Bearer " + SUPABASE_ANON_KEY, "apikey": SUPABASE_ANON_KEY },
-        cache: "no-store",
-      });
-      const text = await res.text();
-      let data;
-      try { data = JSON.parse(text); } catch { throw new Error("응답 파싱 실패: " + text.slice(0, 100)); }
-      if (!res.ok) throw new Error("HTTP " + res.status + ": " + (data.message || data.error || text.slice(0,100)));
-      if (data.object === "error") throw new Error("Notion: " + data.message);
+      const topBlocks = await fetchBlocks(pageId);
+      const blocks = topBlocks.filter(b => !MANUAL_HIDDEN_IDS.includes(b.id));
+
+      // fetch children of has_children blocks in parallel
+      const withChildren = blocks.filter(b => b.has_children);
+      if (withChildren.length > 0) {
+        const childArrays = await Promise.all(
+          withChildren.map(b => fetchBlocks(b.id).catch(() => []))
+        );
+        withChildren.forEach((b, i) => { b._children = childArrays[i]; });
+      }
+
       if (pushStack) setManualStack(prev => [...prev, pushStack]);
-      const blocks = (data.results || []).filter(b => !MANUAL_HIDDEN_IDS.includes(b.id));
       setManualBlocks(blocks);
       setManualTitle(title);
       setManualViewType("blocks");
@@ -637,16 +648,19 @@ export default function App() {
       case "paragraph": return (
         <div key={block.id} style={{fontSize:13,color:"#b0b0c8",lineHeight:1.6,marginBottom:6}}>
           {rt(block.paragraph.rich_text) || <br/>}
+          {block._children?.map(c => renderNotionBlock(c))}
         </div>
       );
       case "bulleted_list_item": return (
-        <div key={block.id} style={{fontSize:13,color:"#b0b0c8",lineHeight:1.6,marginBottom:4,paddingLeft:16,display:"flex",gap:6}}>
-          <span style={{color:"#555"}}>•</span><span>{rt(block.bulleted_list_item.rich_text)}</span>
+        <div key={block.id} style={{fontSize:13,color:"#b0b0c8",lineHeight:1.6,marginBottom:4,paddingLeft:16}}>
+          <div style={{display:"flex",gap:6}}><span style={{color:"#555"}}>•</span><span>{rt(block.bulleted_list_item.rich_text)}</span></div>
+          {block._children?.map(c => renderNotionBlock(c))}
         </div>
       );
       case "numbered_list_item": return (
         <div key={block.id} style={{fontSize:13,color:"#b0b0c8",lineHeight:1.6,marginBottom:4,paddingLeft:16}}>
-          {rt(block.numbered_list_item.rich_text)}
+          <div>{rt(block.numbered_list_item.rich_text)}</div>
+          {block._children?.map(c => renderNotionBlock(c))}
         </div>
       );
       case "divider": return (
@@ -698,6 +712,26 @@ export default function App() {
       case "quote": return (
         <div key={block.id} style={{borderLeft:"3px solid #7b8cde",paddingLeft:12,margin:"8px 0",fontSize:13,color:"#888",fontStyle:"italic"}}>
           {rt(block.quote.rich_text)}
+        </div>
+      );
+      case "table": return (
+        <div key={block.id} style={{overflowX:"auto",marginBottom:12}}>
+          <table style={{borderCollapse:"collapse",fontSize:12,color:"#b0b0c8",width:"100%"}}>
+            <tbody>
+              {(block._children || []).map((row, ri) => (
+                <tr key={row.id}>
+                  {(row.table_row?.cells || []).map((cell, ci) => {
+                    const Tag = block.table.has_column_header && ri === 0 ? "th" : "td";
+                    return (
+                      <Tag key={ci} style={{border:"1px solid #2a2a3e",padding:"6px 10px",textAlign:"left",background: block.table.has_column_header && ri === 0 ? "#1e1e30" : "transparent",fontWeight: block.table.has_column_header && ri === 0 ? 600 : 400}}>
+                        {rt(cell)}
+                      </Tag>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       );
       default: return null;
