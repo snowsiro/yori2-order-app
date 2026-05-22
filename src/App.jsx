@@ -197,7 +197,8 @@ export default function App() {
   const [loginEmail, setLoginEmail] = useState("");
   const [loginError, setLoginError] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
-  const [page, setPage] = useState("order");
+  const [page, _setPage] = useState(() => localStorage.getItem("yori2_page") || "home");
+  const setPage = (p) => { _setPage(p); localStorage.setItem("yori2_page", p); };
   const [selectedSupplier, setSelectedSupplier] = useState(null);
   const [quantities, setQuantities] = useState({});
   const [note, setNote] = useState("");
@@ -449,6 +450,7 @@ export default function App() {
     setCurrentUser(null); setLoginEmail(""); setSelectedSupplier(null);
     setQuantities({}); setNote(""); setSubmitted(false);
     localStorage.removeItem("yori2_user");
+    localStorage.removeItem("yori2_page");
   }
 
   function handleQty(itemId, val) {
