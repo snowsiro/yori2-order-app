@@ -349,7 +349,9 @@ export default function App() {
 
     const weeks = [];
     const sheetMonth = MONTH_DE.indexOf(dateRow.v[0]) + 1 || new Date().getMonth() + 1;
-    let curMonth = sheetMonth;
+    const firstDateNum = parseInt(dateRow.v[1]) || 0;
+    // 첫 날짜가 20 이상이면 이전 달 날짜 (예: Mai 시트에서 4월 27일부터 시작)
+    let curMonth = firstDateNum > 20 ? (sheetMonth === 1 ? 12 : sheetMonth - 1) : sheetMonth;
     let prevDate = 0;
 
     for (let startCol = 1; startCol < (dateRow.v.length - 1); startCol += 8) {
