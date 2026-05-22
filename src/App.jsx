@@ -325,12 +325,12 @@ export default function App() {
       .then(({ data }) => { if (data) setDailyNotes(data); });
     const ch1 = supabase.channel("announce-rt")
       .on("postgres_changes", {event: "*", schema: "public", table: "announcements"}, payload => {
-        if (payload.eventType === "INSERT") setAnnouncements(prev => [payload.new, ...prev]);
+        if (payload.eventType === "INSERT") setAnnouncements(prev => prev.some(a => a.id === payload.new.id) ? prev : [payload.new, ...prev]);
         else if (payload.eventType === "DELETE") setAnnouncements(prev => prev.filter(a => a.id !== payload.old.id));
       }).subscribe();
     const ch2 = supabase.channel("notes-rt")
       .on("postgres_changes", {event: "*", schema: "public", table: "daily_notes"}, payload => {
-        if (payload.eventType === "INSERT") setDailyNotes(prev => [payload.new, ...prev]);
+        if (payload.eventType === "INSERT") setDailyNotes(prev => prev.some(n => n.id === payload.new.id) ? prev : [payload.new, ...prev]);
         else if (payload.eventType === "DELETE") setDailyNotes(prev => prev.filter(n => n.id !== payload.old.id));
       }).subscribe();
     return () => { supabase.removeChannel(ch1); supabase.removeChannel(ch2); };
@@ -603,19 +603,27 @@ export default function App() {
 
   async function handlePostAnnounce() {
     if (!newAnnounceText.trim()) return;
-    await supabase.from("announcements").insert({ content: newAnnounceText.trim(), author_name: currentUser.name });
+    const content = newAnnounceText.trim();
     setNewAnnounceText("");
+    const { data } = await supabase.from("announcements")
+      .insert({ content, author_name: currentUser.name }).select().single();
+    if (data) setAnnouncements(prev => [data, ...prev]);
   }
   async function handleDeleteAnnounce(id) {
+    setAnnouncements(prev => prev.filter(a => a.id !== id));
     await supabase.from("announcements").delete().eq("id", id);
   }
   async function handlePostNote() {
     if (!newNoteText.trim()) return;
+    const content = newNoteText.trim();
     const today = new Date().toISOString().slice(0, 10);
-    await supabase.from("daily_notes").insert({ content: newNoteText.trim(), work_date: today, author_name: currentUser.name });
     setNewNoteText("");
+    const { data } = await supabase.from("daily_notes")
+      .insert({ content, work_date: today, author_name: currentUser.name }).select().single();
+    if (data) setDailyNotes(prev => [data, ...prev]);
   }
   async function handleDeleteNote(id) {
+    setDailyNotes(prev => prev.filter(n => n.id !== id));
     await supabase.from("daily_notes").delete().eq("id", id);
   }
   function markAnnounceRead() {
