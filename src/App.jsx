@@ -342,7 +342,8 @@ export default function App() {
   function handleDeleteOrder(orderId) {
     if (!window.confirm(t("이 발주 내역을 삭제하시겠습니까?", "Diesen Eintrag wirklich löschen?"))) return;
     setOrders(prev => prev.filter(o => o.id !== orderId));
-    supabase.from("orders").delete().eq("id", orderId);
+    supabase.from("orders").delete().eq("id", orderId)
+      .then(({ error }) => { if (error) console.error("Supabase delete error:", error); });
   }
 
   const totalItems = selectedSupplier
