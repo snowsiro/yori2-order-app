@@ -694,11 +694,36 @@ export default function App() {
         const caption = block.image?.caption?.map(r => r.plain_text).join("") || "";
         return url ? (
           <div key={block.id} style={{margin:"10px 0",textAlign:"center"}}>
-            <img src={url} alt={caption} style={{maxWidth:"100%",borderRadius:8,border:"1px solid #2a2a3e"}}/>
+            <img src={url} alt={caption}
+              style={{maxWidth:"100%",borderRadius:8,border:"1px solid #2a2a3e"}}
+              onError={e => { e.target.style.display="none"; e.target.nextSibling.style.display="block"; }}
+            />
+            <div style={{display:"none",fontSize:12,color:"#666",padding:8}}>🖼️ 이미지를 불러올 수 없습니다</div>
             {caption && <div style={{fontSize:11,color:"#666",marginTop:4}}>{caption}</div>}
           </div>
         ) : null;
       }
+      case "toggle": return (
+        <details key={block.id} style={{marginBottom:6}}>
+          <summary style={{fontSize:13,color:"#b0b0c8",cursor:"pointer",padding:"2px 0",listStyle:"none",display:"flex",alignItems:"center",gap:6}}>
+            <span style={{color:"#555",fontSize:10}}>▶</span>
+            <span>{rt(block.toggle?.rich_text)}</span>
+          </summary>
+          <div style={{paddingLeft:16,marginTop:4}}>
+            {block._children?.map(c => renderNotionBlock(c))}
+          </div>
+        </details>
+      );
+      case "column_list": return (
+        <div key={block.id} style={{display:"flex",gap:12,marginBottom:8,flexWrap:"wrap"}}>
+          {block._children?.map(c => renderNotionBlock(c))}
+        </div>
+      );
+      case "column": return (
+        <div key={block.id} style={{flex:"1 1 140px"}}>
+          {block._children?.map(c => renderNotionBlock(c))}
+        </div>
+      );
       case "to_do": return (
         <div key={block.id} style={{fontSize:13,color:"#b0b0c8",lineHeight:1.6,marginBottom:4,paddingLeft:4,display:"flex",gap:8,alignItems:"flex-start"}}>
           <span style={{color: block.to_do.checked ? "#7b8cde" : "#444", fontSize:15}}>
