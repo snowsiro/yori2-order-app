@@ -224,6 +224,11 @@ export default function App() {
   const [staffLoading, setStaffLoading] = useState(false);
   const [newStaffForm, setNewStaffForm] = useState({email:"", name:""});
   const [staffError, setStaffError] = useState("");
+  // schedule
+  const [scheduleData, setScheduleData] = useState(null);
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [scheduleError, setScheduleError] = useState("");
+  const [scheduleWeekIndex, setScheduleWeekIndex] = useState(0);
 
   useEffect(() => {
     const mapRow = row => ({
@@ -315,6 +320,84 @@ export default function App() {
     loadStaff();
   }
 
+  const SCHEDULE_CSV_BASE = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRKogyhrPk7ydci6abMVbZftoG26Q5_xXXD0ZlefyhaRqHHLwH5PkQz0dtGkbYN9Lxl1o5Ned-ft9ED/pub?output=csv";
+  const MONTH_DE = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
+
+  function parseScheduleCSV(csv) {
+    const rows = csv.split(/\r?\n/).map(line => {
+      const cells = []; let cur = ""; let inQ = false;
+      for (const ch of line) {
+        if (ch === '"') { inQ = !inQ; }
+        else if (ch === ',' && !inQ) { cells.push(cur.trim()); cur = ""; }
+        else { cur += ch; }
+      }
+      cells.push(cur.trim());
+      return cells;
+    });
+
+    const dayRowIdx = rows.findIndex(r => r.filter(c => c === "MO").length >= 2);
+    if (dayRowIdx < 0) return null;
+    const dateRowIdx = dayRowIdx + 1;
+    const dateRow = rows[dateRowIdx];
+
+    // staff rows: non-empty name in col0, between dayRow+2 and end, skip legend row (col0 = "F")
+    const staffRows = [];
+    for (let i = dayRowIdx + 2; i < rows.length; i++) {
+      const name = rows[i][0]?.trim();
+      if (name && name !== "F" && name !== "=" && !/^\d/.test(name)) {
+        staffRows.push({ name, cells: rows[i] });
+      }
+    }
+
+    // detect week blocks: col 1 starts week 1, then every 8 cols (7 days + 1 separator)
+    const weeks = [];
+    const sheetMonth = MONTH_DE.indexOf(dateRow[0]) + 1 || new Date().getMonth() + 1;
+    let curMonth = sheetMonth;
+    let prevDate = 0;
+
+    for (let startCol = 1; startCol < (dateRow.length - 1); startCol += 8) {
+      const dates = [];
+      for (let d = 0; d < 7; d++) {
+        const dayNum = parseInt(dateRow[startCol + d]) || 0;
+        if (dayNum < prevDate && prevDate > 20) curMonth = curMonth % 12 + 1;
+        prevDate = dayNum || prevDate;
+        dates.push({ day: dayNum, month: curMonth });
+      }
+      if (dates.every(d => !d.day)) break;
+
+      const staff = {};
+      staffRows.forEach(s => {
+        staff[s.name] = [];
+        for (let d = 0; d < 7; d++) staff[s.name].push(s.cells[startCol + d] || "");
+      });
+      weeks.push({ dates, staff });
+    }
+    return { staffNames: staffRows.map(s => s.name), weeks };
+  }
+
+  async function loadSchedule(monthIdx) {
+    setScheduleLoading(true);
+    setScheduleError("");
+    const sheet = MONTH_DE[monthIdx];
+    try {
+      const res = await fetch(`${SCHEDULE_CSV_BASE}&sheet=${encodeURIComponent(sheet)}`);
+      if (!res.ok) throw new Error("fetch failed");
+      const csv = await res.text();
+      const parsed = parseScheduleCSV(csv);
+      if (!parsed) throw new Error("parse failed");
+      setScheduleData(parsed);
+      // find current week
+      const today = new Date();
+      const todayDay = today.getDate();
+      const todayMonth = today.getMonth() + 1;
+      const idx = parsed.weeks.findIndex(w => w.dates.some(d => d.day === todayDay && d.month === todayMonth));
+      setScheduleWeekIndex(idx >= 0 ? idx : 0);
+    } catch {
+      setScheduleError(t("일정을 불러오지 못했습니다.", "Dienstplan konnte nicht geladen werden."));
+    }
+    setScheduleLoading(false);
+  }
+
   async function handleRemoveStaff(user) {
     if (user.role === "owner") return;
     if (!window.confirm(t(`"${user.name}"을(를) 삭제하시겠습니까?`, `"${user.name}" löschen?`))) return;
@@ -344,6 +427,7 @@ export default function App() {
       const userToStore = { email: data.email, name: data.name, role: data.role };
       setCurrentUser(userToStore);
       localStorage.setItem("yori2_user", JSON.stringify(userToStore));
+      setPage("home");
     }
   }
 
@@ -355,6 +439,7 @@ export default function App() {
       const userToStore = { email: pendingUser.email, name: pendingUser.name, role: pendingUser.role };
       setCurrentUser(userToStore);
       localStorage.setItem("yori2_user", JSON.stringify(userToStore));
+      setPage("home");
       setPwPopup(false); setPendingUser(null); setPwInput(""); setPwError("");
     } else {
       setPwError(t("비밀번호가 틀렸습니다.", "Falsches Passwort."));
@@ -494,7 +579,7 @@ export default function App() {
         <div style={styles.headerLeft}>
           <img src={`data:image/jpeg;base64,${LOGO_B64}`} alt="Yori2" style={styles.headerLogo} />
           <div>
-            <div style={styles.headerTitle}>{t("Yori2 발주","Yori2 Bestellung")}</div>
+            <div style={styles.headerTitle}>Yori2</div>
             <div style={styles.headerUser}>{currentUser.name}</div>
           </div>
         </div>
@@ -508,22 +593,156 @@ export default function App() {
       </header>
 
       <nav style={styles.nav}>
+        <button style={page==="home"?styles.navActive:styles.navBtn} onClick={()=>setPage("home")}>
+          🏠 {t("홈","Home")}
+        </button>
+        <button style={page==="schedule"?styles.navActive:styles.navBtn} onClick={()=>{setPage("schedule"); if(!scheduleData) loadSchedule(new Date().getMonth());}}>
+          📅 {t("근무일정","Dienstplan")}
+        </button>
         <button style={page==="order"?styles.navActive:styles.navBtn} onClick={()=>{setPage("order");handleNewOrder();}}>
-          📦 {t("발주서 작성","Bestellung")}
+          📦 {t("발주","Bestellung")}
         </button>
         <button style={page==="history"?styles.navActive:styles.navBtn} onClick={()=>setPage("history")}>
-          📋 {t("발주 이력","Verlauf")}
+          📋 {t("내역","Verlauf")}
           {orders.filter(o=>o.status==="pending").length > 0 &&
             <span style={styles.badge}>{orders.filter(o=>o.status==="pending").length}</span>}
         </button>
         {currentUser.role==="owner" && (
           <button style={page==="settings"?styles.navActive:styles.navBtn} onClick={()=>{setPage("settings");setSettingsView("list");}}>
-            ⚙️ {t("설정","Einstellungen")}
+            ⚙️ {t("설정","Einst.")}
           </button>
         )}
       </nav>
 
       <main style={styles.main}>
+
+        {page === "home" && (
+          <div>
+            <div style={{fontSize:16,fontWeight:700,color:"#e8e8f0",marginBottom:6}}>
+              {t(`안녕하세요, ${currentUser.name}님 👋`, `Hallo, ${currentUser.name} 👋`)}
+            </div>
+            <div style={{fontSize:12,color:"#888",marginBottom:20}}>
+              {new Date().toLocaleDateString(lang==="ko"?"ko-KR":"de-DE",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}
+            </div>
+            {[
+              { icon:"📅", label:t("근무일정","Dienstplan"), sub:t("이번 주 근무표 확인","Dienstplan ansehen"), action:()=>{ setPage("schedule"); if(!scheduleData) loadSchedule(new Date().getMonth()); } },
+              { icon:"📦", label:t("식자재 발주","Bestellung"), sub:t("공급업체에 발주서 작성","Bestellung aufgeben"), action:()=>{ setPage("order"); handleNewOrder(); } },
+              { icon:"📖", label:t("식당 메뉴얼","Handbuch"), sub:t("준비 중","Demnächst verfügbar"), action: null },
+            ].map(item => (
+              <div
+                key={item.label}
+                onClick={item.action || undefined}
+                style={{
+                  background: item.action ? "#1e1e2e" : "#161622",
+                  border: "1px solid #2a2a3e",
+                  borderRadius: 14,
+                  padding: "18px 20px",
+                  marginBottom: 12,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 16,
+                  cursor: item.action ? "pointer" : "default",
+                  opacity: item.action ? 1 : 0.45,
+                }}
+              >
+                <div style={{fontSize:32}}>{item.icon}</div>
+                <div>
+                  <div style={{fontWeight:700,fontSize:15,color:"#e8e8f0"}}>{item.label}</div>
+                  <div style={{fontSize:12,color:"#888",marginTop:2}}>{item.sub}</div>
+                </div>
+                {item.action && <div style={{marginLeft:"auto",color:"#555",fontSize:18}}>›</div>}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {page === "schedule" && (
+          <div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
+              <div style={{fontWeight:700,fontSize:15,color:"#e8e8f0"}}>📅 {t("근무일정","Dienstplan")}</div>
+              <div style={{display:"flex",gap:6}}>
+                {MONTH_DE.map((m, i) => (
+                  <button
+                    key={m}
+                    style={{
+                      ...styles.copyBtn,
+                      ...(i === (scheduleData ? (new Date().getMonth()) : new Date().getMonth()) ? {} : {}),
+                      fontSize:10, padding:"3px 6px",
+                      background: "#1e1e2e", color:"#aaa"
+                    }}
+                    onClick={()=>{ loadSchedule(i); }}
+                  >{m.slice(0,3)}</button>
+                ))}
+              </div>
+            </div>
+
+            {scheduleLoading && <div style={{color:"#888",textAlign:"center",padding:30}}>{t("불러오는 중...","Laden...")}</div>}
+            {scheduleError && <div style={styles.error}>{scheduleError}</div>}
+
+            {scheduleData && !scheduleLoading && (() => {
+              const week = scheduleData.weeks[scheduleWeekIndex];
+              if (!week) return null;
+              const today = new Date();
+              const SHIFT_COLOR = { O:"#1a3a5c", N:"#2a1a4a", F:"#2a2a2a", "":"#111" };
+              const SHIFT_LABEL = { O:"O", N:"N", F:"F" };
+              return (
+                <div>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                    <button style={styles.backBtn} onClick={()=>setScheduleWeekIndex(i=>Math.max(0,i-1))} disabled={scheduleWeekIndex===0}>‹ {t("이전","Vor.")}</button>
+                    <div style={{fontSize:12,color:"#aaa",textAlign:"center"}}>
+                      {`${week.dates[0].day}. – ${week.dates[6].day}.`}
+                    </div>
+                    <button style={styles.backBtn} onClick={()=>setScheduleWeekIndex(i=>Math.min(scheduleData.weeks.length-1,i+1))} disabled={scheduleWeekIndex===scheduleData.weeks.length-1}>{t("다음","Nächs.")} ›</button>
+                  </div>
+
+                  {/* 날짜 헤더 */}
+                  <div style={{display:"grid", gridTemplateColumns:`80px repeat(7, 1fr)`, gap:2, marginBottom:4}}>
+                    <div/>
+                    {["MO","DI","MI","DO","FR","SA","SO"].map((d,i) => {
+                      const isToday = week.dates[i].day === today.getDate() && week.dates[i].month === today.getMonth()+1;
+                      return (
+                        <div key={d} style={{textAlign:"center",fontSize:10,color: isToday?"#f5a623":"#888", fontWeight: isToday?700:400}}>
+                          <div>{d}</div>
+                          <div style={{fontSize:11,color:isToday?"#f5a623":"#666"}}>{week.dates[i].day}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* 직원별 행 */}
+                  {scheduleData.staffNames.map(name => (
+                    <div key={name} style={{display:"grid", gridTemplateColumns:`80px repeat(7, 1fr)`, gap:2, marginBottom:3}}>
+                      <div style={{fontSize:11,fontWeight:600,color:"#c8c8d8",display:"flex",alignItems:"center",paddingRight:4, overflow:"hidden", whiteSpace:"nowrap"}}>{name}</div>
+                      {week.staff[name]?.map((shift, di) => {
+                        const isToday = week.dates[di].day === today.getDate() && week.dates[di].month === today.getMonth()+1;
+                        const bg = shift === "O" ? "#1a3a5c" : shift === "N" ? "#2d1a4a" : shift === "F" ? "#222" : shift ? "#1a2e1a" : "#161622";
+                        const color = shift === "O" ? "#7ab8f5" : shift === "N" ? "#c89eff" : shift === "F" ? "#555" : shift ? "#7fd88a" : "#333";
+                        return (
+                          <div key={di} style={{
+                            background: isToday ? (bg==="#161622"?"#1a1a10":bg) : bg,
+                            border: isToday ? "1px solid #f5a623" : "1px solid #222",
+                            borderRadius:5,
+                            textAlign:"center",
+                            padding:"5px 2px",
+                            fontSize:11,
+                            fontWeight:600,
+                            color,
+                          }}>{shift || ""}</div>
+                        );
+                      })}
+                    </div>
+                  ))}
+
+                  <div style={{marginTop:14,fontSize:11,color:"#555",display:"flex",gap:12,flexWrap:"wrap"}}>
+                    {[["O","#7ab8f5",t("오픈","Open")],["N","#c89eff",t("야간","Nacht")],["F","#555",t("휴무","Frei")]].map(([k,c,l])=>(
+                      <span key={k}><span style={{color:c,fontWeight:700}}>{k}</span> {l}</span>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        )}
 
         {page === "order" && !submitted && (
           <>
