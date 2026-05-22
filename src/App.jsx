@@ -629,6 +629,15 @@ export default function App() {
           <div style={{color:"#555",fontSize:18}}>›</div>
         </div>
       );
+      case "child_database": if (MANUAL_HIDDEN_IDS.includes(block.id)) return null;
+        return (
+        <div key={block.id}
+          onClick={() => loadManualPage(block.id, block.child_database.title, {id: manualStack.length === 0 ? MANUAL_ROOT_ID : block.id, title: manualTitle})}
+          style={{...styles.historyCard, display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8, cursor:"pointer"}}>
+          <div style={{fontWeight:600,fontSize:13,color:"#e8e8f0"}}>🗄️ {block.child_database.title}</div>
+          <div style={{color:"#555",fontSize:18}}>›</div>
+        </div>
+      );
       case "callout": return (
         <div key={block.id} style={{background:"#1e1e2e",border:"1px solid #2a2a3e",borderRadius:8,padding:"10px 12px",marginBottom:8,fontSize:13,color:"#b0b0c8"}}>
           {block.callout.icon?.emoji} {rt(block.callout.rich_text)}
