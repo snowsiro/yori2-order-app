@@ -379,23 +379,31 @@ export default function App() {
     setScheduleLoading(true);
     setScheduleError("");
     const sheet = MONTH_DE[monthIdx];
-    try {
-      const url = `https://docs.google.com/spreadsheets/d/${SCHEDULE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheet)}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("fetch failed");
-      const csv = await res.text();
-      const parsed = parseScheduleCSV(csv);
-      if (!parsed) throw new Error("parse failed");
-      setScheduleData(parsed);
-      // find current week
-      const today = new Date();
-      const todayDay = today.getDate();
-      const todayMonth = today.getMonth() + 1;
-      const idx = parsed.weeks.findIndex(w => w.dates.some(d => d.day === todayDay && d.month === todayMonth));
-      setScheduleWeekIndex(idx >= 0 ? idx : 0);
-    } catch {
-      setScheduleError(t("일정을 불러오지 못했습니다.", "Dienstplan konnte nicht geladen werden."));
+    const urls = [
+      `https://docs.google.com/spreadsheets/d/${SCHEDULE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheet)}`,
+      `https://docs.google.com/spreadsheets/d/${SCHEDULE_SHEET_ID}/export?format=csv&sheet=${encodeURIComponent(sheet)}`,
+    ];
+    let lastError = "";
+    for (const url of urls) {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) { lastError = `HTTP ${res.status}`; continue; }
+        const csv = await res.text();
+        if (csv.includes("<!DOCTYPE") || csv.includes("<html")) { lastError = "로그인 필요 (시트 공개 설정 확인)"; continue; }
+        const parsed = parseScheduleCSV(csv);
+        if (!parsed) { lastError = "파싱 실패"; continue; }
+        setScheduleData(parsed);
+        const today = new Date();
+        const idx = parsed.weeks.findIndex(w => w.dates.some(d => d.day === today.getDate() && d.month === today.getMonth() + 1));
+        setScheduleWeekIndex(idx >= 0 ? idx : 0);
+        setScheduleLoading(false);
+        return;
+      } catch (e) {
+        lastError = `네트워크 오류: ${e.message}`;
+        console.error("Schedule fetch error:", url, e);
+      }
     }
+    setScheduleError(`${t("불러오기 실패","Ladefehler")}: ${lastError}`);
     setScheduleLoading(false);
   }
 
