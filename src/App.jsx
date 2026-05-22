@@ -839,12 +839,6 @@ export default function App() {
         <button style={page==="home"?styles.navActive:styles.navBtn} onClick={()=>setPage("home")}>
           🏠 {t("홈","Home")}
         </button>
-        <button style={page==="schedule"?styles.navActive:styles.navBtn} onClick={()=>{setPage("schedule"); if(!scheduleData) loadSchedule(new Date().getMonth());}}>
-          📅 {t("근무일정","Dienstplan")}
-        </button>
-        <button style={page==="manual"?styles.navActive:styles.navBtn} onClick={()=>{setPage("manual"); if(manualBlocks.length===0) loadManualPage(MANUAL_ROOT_ID,"메뉴얼",null);}}>
-          📖 {t("메뉴얼","Handbuch")}
-        </button>
         <button style={page==="announce"?styles.navActive:styles.navBtn} onClick={()=>{setPage("announce");markAnnounceRead();}}>
           📢 {t("공지","Info")}
           {unreadAnnounce > 0 && <span style={styles.badge}>{unreadAnnounce}</span>}
@@ -852,6 +846,12 @@ export default function App() {
         <button style={page==="notes"?styles.navActive:styles.navBtn} onClick={()=>{setPage("notes");markNotesRead();}}>
           📝 {t("특이사항","Notizen")}
           {unreadNotes > 0 && <span style={styles.badge}>{unreadNotes}</span>}
+        </button>
+        <button style={page==="manual"?styles.navActive:styles.navBtn} onClick={()=>{setPage("manual"); if(manualBlocks.length===0) loadManualPage(MANUAL_ROOT_ID,"메뉴얼",null);}}>
+          📖 {t("메뉴얼","Handbuch")}
+        </button>
+        <button style={page==="schedule"?styles.navActive:styles.navBtn} onClick={()=>{setPage("schedule"); if(!scheduleData) loadSchedule(new Date().getMonth());}}>
+          📅 {t("근무일정","Dienstplan")}
         </button>
         <button style={page==="order"?styles.navActive:styles.navBtn} onClick={()=>{setPage("order");handleNewOrder();}}>
           📦 {t("발주","Bestellung")}
@@ -879,11 +879,11 @@ export default function App() {
               {new Date().toLocaleDateString(lang==="ko"?"ko-KR":"de-DE",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}
             </div>
             {[
-              { icon:"📅", label:t("근무일정","Dienstplan"), sub:t("이번 주 근무표 확인","Dienstplan ansehen"), action:()=>{ setPage("schedule"); if(!scheduleData) loadSchedule(new Date().getMonth()); } },
               { icon:"📢", label:t("공지사항","Ankündigungen"), sub:t("오너 공지 확인","Ankündigungen lesen"), badge: unreadAnnounce, action:()=>{ setPage("announce"); markAnnounceRead(); } },
               { icon:"📝", label:t("특이사항","Tagesnotizen"), sub:t("오늘의 특이사항 기록","Notizen des Tages"), badge: unreadNotes, action:()=>{ setPage("notes"); markNotesRead(); } },
-              { icon:"📦", label:t("식자재 발주","Bestellung"), sub:t("공급업체에 발주서 작성","Bestellung aufgeben"), action:()=>{ setPage("order"); handleNewOrder(); } },
               { icon:"📖", label:t("식당 메뉴얼","Handbuch"), sub:t("레시피 및 운영 메뉴얼","Rezepte & Handbuch"), action:()=>{ setPage("manual"); if(manualBlocks.length===0) loadManualPage(MANUAL_ROOT_ID,"메뉴얼",null); } },
+              { icon:"📅", label:t("근무일정","Dienstplan"), sub:t("이번 주 근무표 확인","Dienstplan ansehen"), action:()=>{ setPage("schedule"); if(!scheduleData) loadSchedule(new Date().getMonth()); } },
+              { icon:"📦", label:t("식자재 발주","Bestellung"), sub:t("공급업체에 발주서 작성","Bestellung aufgeben"), action:()=>{ setPage("order"); handleNewOrder(); } },
             ].map(item => (
               <div
                 key={item.label}
