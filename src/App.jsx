@@ -360,7 +360,8 @@ export default function App() {
         prevDate = dayNum || prevDate;
         const dayColor = rows[dayRowIdx].f[startCol + d] || "#000000";
         const dateColor = dateRow.f[startCol + d] || "#000000";
-        const isHoliday = isRedColor(dayColor) || isRedColor(dateColor);
+        const isWeekend = d >= 5; // SA=5, SO=6
+        const isHoliday = !isWeekend && (isRedColor(dayColor) || isRedColor(dateColor));
         dates.push({ day: dayNum, month: curMonth, isHoliday });
       }
       if (dates.every(d => !d.day)) break;
