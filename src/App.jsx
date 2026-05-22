@@ -324,52 +324,51 @@ export default function App() {
   const SCHEDULE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwCuAzLs9Q21J3clBQpmmuV5FAfIKp5Ict9SqlaL1T_mIWbC2gKC4ZSUTuDGrz573QI/exec";
   const MONTH_DE = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
 
-  function parseScheduleCSV(csv) {
-    const rows = csv.split(/\r?\n/).map(line => {
-      const cells = []; let cur = ""; let inQ = false;
-      for (const ch of line) {
-        if (ch === '"') { inQ = !inQ; }
-        else if (ch === ',' && !inQ) { cells.push(cur.trim()); cur = ""; }
-        else { cur += ch; }
-      }
-      cells.push(cur.trim());
-      return cells;
-    });
+  function isRedColor(hex) {
+    if (!hex || hex === "#000000" || hex === "#ffffff" || hex === "null") return false;
+    const r = parseInt(hex.slice(1,3), 16);
+    const g = parseInt(hex.slice(3,5), 16);
+    const b = parseInt(hex.slice(5,7), 16);
+    return r > 150 && g < 100 && b < 100;
+  }
 
-    const dayRowIdx = rows.findIndex(r => r.filter(c => c === "MO").length >= 2);
+  function parseScheduleData(data) {
+    const rows = data.rows.map(r => ({ v: r.v, f: r.f || [] }));
+
+    const dayRowIdx = rows.findIndex(r => r.v.filter(c => c === "MO").length >= 2);
     if (dayRowIdx < 0) return null;
-    const dateRowIdx = dayRowIdx + 1;
-    const dateRow = rows[dateRowIdx];
+    const dateRow = rows[dayRowIdx + 1];
 
-    // staff rows: non-empty name in col0, between dayRow+2 and end, skip legend row (col0 = "F")
     const staffRows = [];
     for (let i = dayRowIdx + 2; i < rows.length; i++) {
-      const name = rows[i][0]?.trim();
+      const name = rows[i].v[0]?.trim();
       if (name && name !== "F" && name !== "=" && !/^\d/.test(name)) {
-        staffRows.push({ name, cells: rows[i] });
+        staffRows.push({ name, v: rows[i].v });
       }
     }
 
-    // detect week blocks: col 1 starts week 1, then every 8 cols (7 days + 1 separator)
     const weeks = [];
-    const sheetMonth = MONTH_DE.indexOf(dateRow[0]) + 1 || new Date().getMonth() + 1;
+    const sheetMonth = MONTH_DE.indexOf(dateRow.v[0]) + 1 || new Date().getMonth() + 1;
     let curMonth = sheetMonth;
     let prevDate = 0;
 
-    for (let startCol = 1; startCol < (dateRow.length - 1); startCol += 8) {
+    for (let startCol = 1; startCol < (dateRow.v.length - 1); startCol += 8) {
       const dates = [];
       for (let d = 0; d < 7; d++) {
-        const dayNum = parseInt(dateRow[startCol + d]) || 0;
+        const dayNum = parseInt(dateRow.v[startCol + d]) || 0;
         if (dayNum < prevDate && prevDate > 20) curMonth = curMonth % 12 + 1;
         prevDate = dayNum || prevDate;
-        dates.push({ day: dayNum, month: curMonth });
+        const dayColor = rows[dayRowIdx].f[startCol + d] || "#000000";
+        const dateColor = dateRow.f[startCol + d] || "#000000";
+        const isHoliday = isRedColor(dayColor) || isRedColor(dateColor);
+        dates.push({ day: dayNum, month: curMonth, isHoliday });
       }
       if (dates.every(d => !d.day)) break;
 
       const staff = {};
       staffRows.forEach(s => {
         staff[s.name] = [];
-        for (let d = 0; d < 7; d++) staff[s.name].push(s.cells[startCol + d] || "");
+        for (let d = 0; d < 7; d++) staff[s.name].push(s.v[startCol + d] || "");
       });
       weeks.push({ dates, staff });
     }
@@ -383,9 +382,9 @@ export default function App() {
     try {
       const res = await fetch(`${SCHEDULE_SCRIPT_URL}?month=${encodeURIComponent(sheet)}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const csv = await res.text();
-      if (csv.includes("<!DOCTYPE") || csv.includes("<html")) throw new Error("인증 오류");
-      const parsed = parseScheduleCSV(csv);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      const parsed = parseScheduleData(data);
       if (!parsed) throw new Error("파싱 실패");
       setScheduleData(parsed);
       const today = new Date();
@@ -696,10 +695,16 @@ export default function App() {
                     <div/>
                     {["MO","DI","MI","DO","FR","SA","SO"].map((d,i) => {
                       const isToday = week.dates[i].day === today.getDate() && week.dates[i].month === today.getMonth()+1;
+                      const isHoliday = week.dates[i].isHoliday;
                       return (
-                        <div key={d} style={{textAlign:"center",fontSize:10,color: isToday?"#f5a623":"#888", fontWeight: isToday?700:400}}>
-                          <div>{d}</div>
-                          <div style={{fontSize:11,color:isToday?"#f5a623":"#666"}}>{week.dates[i].day}</div>
+                        <div key={d} style={{textAlign:"center",fontSize:10,fontWeight:isToday?700:400,
+                          background: isToday ? "#2a2000" : isHoliday ? "#2a0000" : "transparent",
+                          borderRadius:5, padding:"3px 1px",
+                          border: isToday ? "1px solid #f5a623" : "1px solid transparent"}}>
+                          <div style={{color: isHoliday ? "#ff6b6b" : isToday ? "#f5a623" : "#888"}}>{d}</div>
+                          <div style={{fontSize:12, fontWeight:700, color: isHoliday ? "#ff6b6b" : isToday ? "#f5a623" : "#ccc"}}>{week.dates[i].day}</div>
+                          {isToday && <div style={{fontSize:9,color:"#f5a623"}}>오늘</div>}
+                          {isHoliday && <div style={{fontSize:9,color:"#ff6b6b"}}>공휴일</div>}
                         </div>
                       );
                     })}
@@ -711,12 +716,21 @@ export default function App() {
                       <div style={{fontSize:11,fontWeight:600,color:"#c8c8d8",display:"flex",alignItems:"center",paddingRight:4, overflow:"hidden", whiteSpace:"nowrap"}}>{name}</div>
                       {week.staff[name]?.map((shift, di) => {
                         const isToday = week.dates[di].day === today.getDate() && week.dates[di].month === today.getMonth()+1;
-                        const bg = shift === "O" ? "#1a3a5c" : shift === "N" ? "#2d1a4a" : shift === "F" ? "#1a2e1a" : shift ? "#1a2a2a" : "#161622";
-                        const color = shift === "O" ? "#7ab8f5" : shift === "N" ? "#c89eff" : shift === "F" ? "#7fd88a" : shift ? "#a0d0c0" : "#333";
+                        const isHoliday = week.dates[di].isHoliday;
+                        const bg = isHoliday ? "#2a0a0a"
+                          : shift === "O" ? "#1a3a5c"
+                          : shift === "N" ? "#2d1a4a"
+                          : shift === "F" ? "#1a2e1a"
+                          : shift ? "#1a2a2a" : "#161622";
+                        const color = isHoliday ? "#ff8080"
+                          : shift === "O" ? "#7ab8f5"
+                          : shift === "N" ? "#c89eff"
+                          : shift === "F" ? "#7fd88a"
+                          : shift ? "#a0d0c0" : "#333";
                         return (
                           <div key={di} style={{
-                            background: isToday ? (bg==="#161622"?"#1a1a10":bg) : bg,
-                            border: isToday ? "1px solid #f5a623" : "1px solid #222",
+                            background: bg,
+                            border: isToday ? "1px solid #f5a623" : isHoliday ? "1px solid #ff4444" : "1px solid #222",
                             borderRadius:5,
                             textAlign:"center",
                             padding:"5px 2px",
