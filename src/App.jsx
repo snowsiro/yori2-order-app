@@ -835,7 +835,7 @@ export default function App() {
         </div>
       </header>
 
-      <nav style={styles.nav}>
+      <nav style={styles.nav} className="yori-nav">
         <button style={page==="home"?styles.navActive:styles.navBtn} onClick={()=>setPage("home")}>
           🏠 {t("홈","Home")}
         </button>
@@ -1474,8 +1474,8 @@ const styles = {
   headerRight: { display:"flex", alignItems:"center", gap:8 },
   logoutBtn: { background:"transparent", border:"1px solid #333", color:"#888", borderRadius:8, padding:"5px 10px", cursor:"pointer", fontSize:12 },
   nav: { background:"#13131f", borderBottom:"1px solid #1e1e30", display:"flex", padding:"0 8px" },
-  navBtn: { flex:1, background:"transparent", border:"none", borderBottom:"3px solid transparent", color:"#888", padding:"13px 8px", cursor:"pointer", fontSize:13, position:"relative" },
-  navActive: { flex:1, background:"transparent", border:"none", borderBottom:"3px solid #fff", color:"#e8e8f0", padding:"13px 8px", cursor:"pointer", fontSize:13, fontWeight:600, position:"relative" },
+  navBtn: { flex:"0 0 auto", background:"transparent", border:"none", borderBottom:"3px solid transparent", color:"#888", padding:"13px 10px", cursor:"pointer", fontSize:12, position:"relative", whiteSpace:"nowrap" },
+  navActive: { flex:"0 0 auto", background:"transparent", border:"none", borderBottom:"3px solid #fff", color:"#e8e8f0", padding:"13px 10px", cursor:"pointer", fontSize:12, fontWeight:600, position:"relative", whiteSpace:"nowrap" },
   badge: { background:"#e8472a", color:"#fff", borderRadius:10, padding:"1px 6px", fontSize:11, marginLeft:6 },
   main: { padding:16, maxWidth:600, margin:"0 auto" },
   sectionTitle: { fontSize:14, fontWeight:700, color:"#c8c8d8", marginBottom:12, marginTop:8 },

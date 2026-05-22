@@ -1,3 +1,11 @@
+.yori-nav {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.yori-nav::-webkit-scrollbar { display: none; }
+
 .counter {
   font-size: 16px;
   padding: 5px 10px;
