@@ -226,29 +226,44 @@ export default function App() {
   const [staffError, setStaffError] = useState("");
 
   useEffect(() => {
+    const mapRow = row => ({
+      id: row.id,
+      date: row.date,
+      staffName: row.staff_name,
+      staffEmail: row.staff_email,
+      supplier: row.supplier,
+      supplierName: row.supplier_name,
+      channel: row.channel,
+      quantities: row.quantities,
+      note: row.note,
+      message: row.message,
+      status: row.status,
+    });
+
     supabase
       .from("orders")
       .select("*")
       .order("date", { ascending: false })
       .then(({ data, error }) => {
         if (error) console.error("Supabase fetch error:", error);
-        if (!error && data) {
-          setOrders(data.map(row => ({
-            id: row.id,
-            date: row.date,
-            staffName: row.staff_name,
-            staffEmail: row.staff_email,
-            supplier: row.supplier,
-            supplierName: row.supplier_name,
-            channel: row.channel,
-            quantities: row.quantities,
-            note: row.note,
-            message: row.message,
-            status: row.status,
-          })));
-        }
+        if (!error && data) setOrders(data.map(mapRow));
         setOrdersLoading(false);
       });
+
+    const channel = supabase
+      .channel("orders-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, payload => {
+        if (payload.eventType === "INSERT") {
+          setOrders(prev => [mapRow(payload.new), ...prev]);
+        } else if (payload.eventType === "UPDATE") {
+          setOrders(prev => prev.map(o => o.id === payload.new.id ? mapRow(payload.new) : o));
+        } else if (payload.eventType === "DELETE") {
+          setOrders(prev => prev.filter(o => o.id !== payload.old.id));
+        }
+      })
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
   }, []); // orders
 
   useEffect(() => {
