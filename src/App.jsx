@@ -234,6 +234,13 @@ export default function App() {
   const [manualError, setManualError] = useState("");
   const [manualStack, setManualStack] = useState([]); // [{id, title}]
   const [manualTitle, setManualTitle] = useState("메뉴얼");
+  // announce & notes
+  const [announcements, setAnnouncements] = useState([]);
+  const [dailyNotes, setDailyNotes] = useState([]);
+  const [newAnnounceText, setNewAnnounceText] = useState("");
+  const [newNoteText, setNewNoteText] = useState("");
+  const [lastReadAnnounce, setLastReadAnnounce] = useState(() => localStorage.getItem("yori2_read_announce") || "");
+  const [lastReadNotes, setLastReadNotes] = useState(() => localStorage.getItem("yori2_read_notes") || "");
   // schedule
   const [scheduleData, setScheduleData] = useState(() => {
     try {
@@ -310,6 +317,24 @@ export default function App() {
       }
     });
   }, []); // suppliers
+
+  useEffect(() => {
+    supabase.from("announcements").select("*").order("created_at", {ascending: false})
+      .then(({ data }) => { if (data) setAnnouncements(data); });
+    supabase.from("daily_notes").select("*").order("created_at", {ascending: false})
+      .then(({ data }) => { if (data) setDailyNotes(data); });
+    const ch1 = supabase.channel("announce-rt")
+      .on("postgres_changes", {event: "*", schema: "public", table: "announcements"}, payload => {
+        if (payload.eventType === "INSERT") setAnnouncements(prev => [payload.new, ...prev]);
+        else if (payload.eventType === "DELETE") setAnnouncements(prev => prev.filter(a => a.id !== payload.old.id));
+      }).subscribe();
+    const ch2 = supabase.channel("notes-rt")
+      .on("postgres_changes", {event: "*", schema: "public", table: "daily_notes"}, payload => {
+        if (payload.eventType === "INSERT") setDailyNotes(prev => [payload.new, ...prev]);
+        else if (payload.eventType === "DELETE") setDailyNotes(prev => prev.filter(n => n.id !== payload.old.id));
+      }).subscribe();
+    return () => { supabase.removeChannel(ch1); supabase.removeChannel(ch2); };
+  }, []); // announce & notes
 
   function syncSupplierToDb(supplier) {
     supabase.from("suppliers").upsert({ id: supplier.id, name: supplier.name, channel: supplier.channel, icon: supplier.icon, color: supplier.color, items: supplier.items })
@@ -576,6 +601,34 @@ export default function App() {
     if (!error) setStaffUsers(prev => prev.filter(u => u.id !== user.id));
   }
 
+  async function handlePostAnnounce() {
+    if (!newAnnounceText.trim()) return;
+    await supabase.from("announcements").insert({ content: newAnnounceText.trim(), author_name: currentUser.name });
+    setNewAnnounceText("");
+  }
+  async function handleDeleteAnnounce(id) {
+    await supabase.from("announcements").delete().eq("id", id);
+  }
+  async function handlePostNote() {
+    if (!newNoteText.trim()) return;
+    const today = new Date().toISOString().slice(0, 10);
+    await supabase.from("daily_notes").insert({ content: newNoteText.trim(), work_date: today, author_name: currentUser.name });
+    setNewNoteText("");
+  }
+  async function handleDeleteNote(id) {
+    await supabase.from("daily_notes").delete().eq("id", id);
+  }
+  function markAnnounceRead() {
+    const now = new Date().toISOString();
+    setLastReadAnnounce(now);
+    localStorage.setItem("yori2_read_announce", now);
+  }
+  function markNotesRead() {
+    const now = new Date().toISOString();
+    setLastReadNotes(now);
+    localStorage.setItem("yori2_read_notes", now);
+  }
+
   async function handleLogin() {
     setLoginLoading(true);
     setLoginError("");
@@ -693,6 +746,12 @@ export default function App() {
   const totalItems = selectedSupplier
     ? selectedSupplier.items.filter(i => quantities[i.id] > 0).length
     : 0;
+  const unreadAnnounce = announcements.filter(a =>
+    a.author_name !== currentUser?.name && (!lastReadAnnounce || a.created_at > lastReadAnnounce)
+  ).length;
+  const unreadNotes = dailyNotes.filter(n =>
+    n.author_name !== currentUser?.name && (!lastReadNotes || n.created_at > lastReadNotes)
+  ).length;
 
   // ── LOGIN ─────────────────────────────────────────────────────────────────
   // Password popup for owner login
@@ -778,6 +837,14 @@ export default function App() {
         <button style={page==="manual"?styles.navActive:styles.navBtn} onClick={()=>{setPage("manual"); if(manualBlocks.length===0) loadManualPage(MANUAL_ROOT_ID,"메뉴얼",null);}}>
           📖 {t("메뉴얼","Handbuch")}
         </button>
+        <button style={page==="announce"?styles.navActive:styles.navBtn} onClick={()=>{setPage("announce");markAnnounceRead();}}>
+          📢 {t("공지","Info")}
+          {unreadAnnounce > 0 && <span style={styles.badge}>{unreadAnnounce}</span>}
+        </button>
+        <button style={page==="notes"?styles.navActive:styles.navBtn} onClick={()=>{setPage("notes");markNotesRead();}}>
+          📝 {t("특이사항","Notizen")}
+          {unreadNotes > 0 && <span style={styles.badge}>{unreadNotes}</span>}
+        </button>
         <button style={page==="order"?styles.navActive:styles.navBtn} onClick={()=>{setPage("order");handleNewOrder();}}>
           📦 {t("발주","Bestellung")}
         </button>
@@ -805,6 +872,8 @@ export default function App() {
             </div>
             {[
               { icon:"📅", label:t("근무일정","Dienstplan"), sub:t("이번 주 근무표 확인","Dienstplan ansehen"), action:()=>{ setPage("schedule"); if(!scheduleData) loadSchedule(new Date().getMonth()); } },
+              { icon:"📢", label:t("공지사항","Ankündigungen"), sub:t("오너 공지 확인","Ankündigungen lesen"), badge: unreadAnnounce, action:()=>{ setPage("announce"); markAnnounceRead(); } },
+              { icon:"📝", label:t("특이사항","Tagesnotizen"), sub:t("오늘의 특이사항 기록","Notizen des Tages"), badge: unreadNotes, action:()=>{ setPage("notes"); markNotesRead(); } },
               { icon:"📦", label:t("식자재 발주","Bestellung"), sub:t("공급업체에 발주서 작성","Bestellung aufgeben"), action:()=>{ setPage("order"); handleNewOrder(); } },
               { icon:"📖", label:t("식당 메뉴얼","Handbuch"), sub:t("레시피 및 운영 메뉴얼","Rezepte & Handbuch"), action:()=>{ setPage("manual"); if(manualBlocks.length===0) loadManualPage(MANUAL_ROOT_ID,"메뉴얼",null); } },
             ].map(item => (
@@ -813,7 +882,7 @@ export default function App() {
                 onClick={item.action || undefined}
                 style={{
                   background: item.action ? "#1e1e2e" : "#161622",
-                  border: "1px solid #2a2a3e",
+                  border: "1px solid " + (item.badge > 0 ? "#7b8cde" : "#2a2a3e"),
                   borderRadius: 14,
                   padding: "18px 20px",
                   marginBottom: 12,
@@ -825,13 +894,92 @@ export default function App() {
                 }}
               >
                 <div style={{fontSize:32}}>{item.icon}</div>
-                <div>
-                  <div style={{fontWeight:700,fontSize:15,color:"#e8e8f0"}}>{item.label}</div>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:700,fontSize:15,color:"#e8e8f0",display:"flex",alignItems:"center",gap:6}}>
+                    {item.label}
+                    {item.badge > 0 && <span style={styles.badge}>{item.badge}</span>}
+                  </div>
                   <div style={{fontSize:12,color:"#888",marginTop:2}}>{item.sub}</div>
                 </div>
-                {item.action && <div style={{marginLeft:"auto",color:"#555",fontSize:18}}>›</div>}
+                {item.action && <div style={{color:"#555",fontSize:18}}>›</div>}
               </div>
             ))}
+          </div>
+        )}
+
+        {page === "announce" && (
+          <div>
+            <div style={{fontWeight:700,fontSize:15,color:"#e8e8f0",marginBottom:16}}>📢 {t("공지사항","Ankündigungen")}</div>
+            {currentUser.role === "owner" && (
+              <div style={{marginBottom:16}}>
+                <textarea
+                  style={{...styles.input, minHeight:80, resize:"vertical", fontFamily:"inherit"}}
+                  placeholder={t("공지사항을 입력하세요","Ankündigung eingeben")}
+                  value={newAnnounceText}
+                  onChange={e=>setNewAnnounceText(e.target.value)}
+                />
+                <button style={newAnnounceText.trim() ? styles.primaryBtn : styles.disabledBtn} onClick={handlePostAnnounce} disabled={!newAnnounceText.trim()}>
+                  {t("공지 등록","Veröffentlichen")}
+                </button>
+              </div>
+            )}
+            {announcements.length === 0 && (
+              <div style={{color:"#555",textAlign:"center",padding:40,fontSize:13}}>{t("등록된 공지사항이 없습니다.","Keine Ankündigungen.")}</div>
+            )}
+            {announcements.map(a => (
+              <div key={a.id} style={{background:"#1e1e2e",border:"1px solid #2a2a3e",borderRadius:12,padding:"14px 16px",marginBottom:10}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                  <div style={{fontSize:11,color:"#888"}}>{a.author_name} · {new Date(a.created_at).toLocaleDateString(lang==="ko"?"ko-KR":"de-DE",{month:"short",day:"numeric"})}</div>
+                  {currentUser.role === "owner" && (
+                    <button onClick={()=>handleDeleteAnnounce(a.id)} style={{background:"transparent",border:"none",color:"#555",cursor:"pointer",fontSize:16,padding:0,lineHeight:1}}>✕</button>
+                  )}
+                </div>
+                <div style={{fontSize:13,color:"#c8c8d8",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{a.content}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {page === "notes" && (
+          <div>
+            <div style={{fontWeight:700,fontSize:15,color:"#e8e8f0",marginBottom:16}}>📝 {t("특이사항","Tagesnotizen")}</div>
+            <div style={{marginBottom:16}}>
+              <textarea
+                style={{...styles.input, minHeight:80, resize:"vertical", fontFamily:"inherit"}}
+                placeholder={t("오늘의 특이사항을 입력하세요","Notiz für heute eingeben")}
+                value={newNoteText}
+                onChange={e=>setNewNoteText(e.target.value)}
+              />
+              <button style={newNoteText.trim() ? styles.primaryBtn : styles.disabledBtn} onClick={handlePostNote} disabled={!newNoteText.trim()}>
+                {t("등록","Eintragen")}
+              </button>
+            </div>
+            {dailyNotes.length === 0 && (
+              <div style={{color:"#555",textAlign:"center",padding:40,fontSize:13}}>{t("등록된 특이사항이 없습니다.","Keine Notizen vorhanden.")}</div>
+            )}
+            {Object.entries(
+              dailyNotes.reduce((acc, n) => { if (!acc[n.work_date]) acc[n.work_date] = []; acc[n.work_date].push(n); return acc; }, {})
+            ).sort(([a],[b]) => b.localeCompare(a)).map(([date, notes]) => {
+              const today = new Date().toISOString().slice(0,10);
+              const yesterday = new Date(Date.now()-86400000).toISOString().slice(0,10);
+              const label = date === today ? t("오늘","Heute") : date === yesterday ? t("어제","Gestern") : date;
+              return (
+                <div key={date} style={{marginBottom:18}}>
+                  <div style={{fontSize:12,color:"#7b8cde",fontWeight:700,marginBottom:8}}>{label}</div>
+                  {notes.map(n => (
+                    <div key={n.id} style={{background:"#1e1e2e",border:"1px solid #2a2a3e",borderRadius:12,padding:"14px 16px",marginBottom:8}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                        <div style={{fontSize:11,color:"#888"}}>{n.author_name} · {new Date(n.created_at).toLocaleTimeString(lang==="ko"?"ko-KR":"de-DE",{hour:"2-digit",minute:"2-digit"})}</div>
+                        {(currentUser.role === "owner" || currentUser.name === n.author_name) && (
+                          <button onClick={()=>handleDeleteNote(n.id)} style={{background:"transparent",border:"none",color:"#555",cursor:"pointer",fontSize:16,padding:0,lineHeight:1}}>✕</button>
+                        )}
+                      </div>
+                      <div style={{fontSize:13,color:"#c8c8d8",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{n.content}</div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
           </div>
         )}
 
