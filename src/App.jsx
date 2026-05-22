@@ -227,7 +227,9 @@ export default function App() {
   const [staffError, setStaffError] = useState("");
   // manual
   const MANUAL_ROOT_ID = "368cbee4b25880da883adcab9d9ca5c1";
-  const [manualBlocks, setManualBlocks] = useState([]);
+  const [manualBlocks, setManualBlocks] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("yori2_manual_cache") || "[]"); } catch { return []; }
+  });
   const [manualLoading, setManualLoading] = useState(false);
   const [manualError, setManualError] = useState("");
   const [manualStack, setManualStack] = useState([]); // [{id, title}]
@@ -343,8 +345,12 @@ export default function App() {
       if (!res.ok) throw new Error("HTTP " + res.status + ": " + (data.message || data.error || text.slice(0,100)));
       if (data.object === "error") throw new Error("Notion: " + data.message);
       if (pushStack) setManualStack(prev => [...prev, pushStack]);
-      setManualBlocks(data.results || []);
+      const blocks = data.results || [];
+      setManualBlocks(blocks);
       setManualTitle(title);
+      if (!pushStack) {
+        try { localStorage.setItem("yori2_manual_cache", JSON.stringify(blocks)); } catch (_) {}
+      }
     } catch (e) {
       setManualError(e.message);
     }
@@ -529,6 +535,7 @@ export default function App() {
       setCurrentUser(userToStore);
       localStorage.setItem("yori2_user", JSON.stringify(userToStore));
       setPage("home");
+      loadManualPage(MANUAL_ROOT_ID, "메뉴얼", null);
     }
   }
 
@@ -541,6 +548,7 @@ export default function App() {
       setCurrentUser(userToStore);
       localStorage.setItem("yori2_user", JSON.stringify(userToStore));
       setPage("home");
+      loadManualPage(MANUAL_ROOT_ID, "메뉴얼", null);
       setPwPopup(false); setPendingUser(null); setPwInput(""); setPwError("");
     } else {
       setPwError(t("비밀번호가 틀렸습니다.", "Falsches Passwort."));
