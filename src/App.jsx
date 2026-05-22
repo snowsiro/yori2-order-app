@@ -720,12 +720,15 @@ export default function App() {
                       {week.staff[name]?.map((shift, di) => {
                         const isToday = week.dates[di].day === today.getDate() && week.dates[di].month === today.getMonth()+1;
                         const isHoliday = week.dates[di].isHoliday;
+                        const isVacation = /^U\d*/i.test(shift);
                         const bg = isHoliday ? "#2a0a0a"
+                          : isVacation ? "#2a2200"
                           : shift === "O" ? "#1a3a5c"
                           : shift === "N" ? "#2d1a4a"
                           : shift === "F" ? "#1a2e1a"
                           : shift ? "#1a2a2a" : "#161622";
                         const color = isHoliday ? "#ff8080"
+                          : isVacation ? "#f5d020"
                           : shift === "O" ? "#7ab8f5"
                           : shift === "N" ? "#c89eff"
                           : shift === "F" ? "#7fd88a"
@@ -747,7 +750,7 @@ export default function App() {
                   ))}
 
                   <div style={{marginTop:14,fontSize:11,color:"#555",display:"flex",gap:12,flexWrap:"wrap"}}>
-                    {[["O","#7ab8f5",t("하루종일","Ganzen Tag")],["N","#c89eff",t("오후","Nacht")],["F","#7fd88a",t("오전","Früh")]].map(([k,c,l])=>(
+                    {[["O","#7ab8f5",t("하루종일","Ganzen Tag")],["N","#c89eff",t("오후","Nacht")],["F","#7fd88a",t("오전","Früh")],["U","#f5d020",t("휴가","Urlaub")]].map(([k,c,l])=>(
                       <span key={k}><span style={{color:c,fontWeight:700}}>{k}</span> {l}</span>
                     ))}
                   </div>
