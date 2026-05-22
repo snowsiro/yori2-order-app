@@ -232,6 +232,7 @@ export default function App() {
       .select("*")
       .order("date", { ascending: false })
       .then(({ data, error }) => {
+        if (error) console.error("Supabase fetch error:", error);
         if (!error && data) {
           setOrders(data.map(row => ({
             id: row.id,
@@ -317,7 +318,7 @@ export default function App() {
       note: order.note,
       message: order.message,
       status: order.status,
-    });
+    }).then(({ error }) => { if (error) console.error("Supabase insert error:", error); });
     setSubmitted(true);
     const encodedMsg = encodeURIComponent(`[Yori2 발주 요청]\n${msg}`);
     window.open(`https://wa.me/${OWNER_WHATSAPP.replace(/[^0-9]/g,"")}?text=${encodedMsg}`, "_blank");
