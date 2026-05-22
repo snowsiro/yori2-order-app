@@ -525,6 +525,7 @@ export default function App() {
     try {
       const res = await fetch(NOTION_PROXY + "?page_id=" + pageId + "&type=blocks", {
         headers: { "Authorization": "Bearer " + SUPABASE_ANON_KEY, "apikey": SUPABASE_ANON_KEY },
+        cache: "no-store",
       });
       const text = await res.text();
       let data;
@@ -552,6 +553,7 @@ export default function App() {
     try {
       const res = await fetch(NOTION_PROXY + "?page_id=" + dbId + "&type=database", {
         headers: { "Authorization": "Bearer " + SUPABASE_ANON_KEY, "apikey": SUPABASE_ANON_KEY },
+        cache: "no-store",
       });
       const text = await res.text();
       let data;
