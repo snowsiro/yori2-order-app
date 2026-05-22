@@ -11,14 +11,6 @@ const LOGO_B64 = "/9j/4AAQSkZJRgABAQAASABIAAD/4RpQRXhpZgAATU0AKgAAAAgABgESAAMAAA
 // ── 데이터 ──────────────────────────────────────────────────────────────────
 const OWNER_WHATSAPP = "+4367763107304";
 
-const USERS = [
-  { email: "snowsiro@gmail.com", name: "Seungjae Kim", role: "owner" },
-  { email: "yori2wien@gmail.com", name: "Yori2", role: "staff" },
-  { email: "jooseopark1070@gmail.com", name: "Jooseo Park", role: "staff" },
-  { email: "miggiebeee@gmail.com", name: "Miguel", role: "staff" },
-  { email: "dahyung43@gmail.com", name: "Dahyung Lee", role: "staff" },
-  { email: "tmf2157@gmail.com", name: "Siwoo Jang", role: "staff" },
-];
 
 const SUPPLIERS = [
   {
@@ -204,6 +196,7 @@ export default function App() {
   });
   const [loginEmail, setLoginEmail] = useState("");
   const [loginError, setLoginError] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
   const [page, setPage] = useState("order");
   const [selectedSupplier, setSelectedSupplier] = useState(null);
   const [quantities, setQuantities] = useState({});
@@ -277,24 +270,39 @@ export default function App() {
 
   const t = (ko, de) => lang === "ko" ? ko : de;
 
-  function handleLogin() {
-    const user = USERS.find(u => u.email.toLowerCase() === loginEmail.trim().toLowerCase());
-    if (!user) { setLoginError(t("등록되지 않은 이메일입니다.", "Unbekannte E-Mail-Adresse.")); return; }
-    if (user.role === "owner") {
-      setPendingUser(user);
+  async function handleLogin() {
+    setLoginLoading(true);
+    setLoginError("");
+    const { data, error } = await supabase
+      .from("users")
+      .select("email, name, role, password_hash")
+      .eq("email", loginEmail.trim().toLowerCase())
+      .single();
+    setLoginLoading(false);
+    if (error || !data) {
+      setLoginError(t("등록되지 않은 이메일입니다.", "Unbekannte E-Mail-Adresse."));
+      return;
+    }
+    if (data.role === "owner") {
+      setPendingUser(data);
       setPwPopup(true);
       setPwInput("");
       setPwError("");
     } else {
-      setCurrentUser(user); setLoginError("");
-      localStorage.setItem("yori2_user", JSON.stringify(user));
+      const userToStore = { email: data.email, name: data.name, role: data.role };
+      setCurrentUser(userToStore);
+      localStorage.setItem("yori2_user", JSON.stringify(userToStore));
     }
   }
 
-  function handlePasswordSubmit() {
-    if (pwInput === "yorikochen2") {
-      setCurrentUser(pendingUser);
-      localStorage.setItem("yori2_user", JSON.stringify(pendingUser));
+  async function handlePasswordSubmit() {
+    const encoder = new TextEncoder();
+    const buffer = await crypto.subtle.digest("SHA-256", encoder.encode(pwInput));
+    const hashHex = Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, "0")).join("");
+    if (hashHex === pendingUser.password_hash) {
+      const userToStore = { email: pendingUser.email, name: pendingUser.name, role: pendingUser.role };
+      setCurrentUser(userToStore);
+      localStorage.setItem("yori2_user", JSON.stringify(userToStore));
       setPwPopup(false); setPendingUser(null); setPwInput(""); setPwError("");
     } else {
       setPwError(t("비밀번호가 틀렸습니다.", "Falsches Passwort."));
@@ -416,11 +424,12 @@ export default function App() {
           placeholder={t("이메일 주소 입력", "E-Mail-Adresse eingeben")}
           value={loginEmail}
           onChange={e => setLoginEmail(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && handleLogin()}
+          onKeyDown={e => e.key === "Enter" && !loginLoading && handleLogin()}
+          disabled={loginLoading}
         />
         {loginError && <div style={styles.error}>{loginError}</div>}
-        <button style={styles.primaryBtn} onClick={handleLogin}>
-          {t("로그인", "Anmelden")}
+        <button style={styles.primaryBtn} onClick={handleLogin} disabled={loginLoading}>
+          {loginLoading ? t("확인 중...", "Prüfen...") : t("로그인", "Anmelden")}
         </button>
       </div>
     </div>
