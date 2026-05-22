@@ -337,10 +337,13 @@ export default function App() {
       const res = await fetch(NOTION_PROXY + "?page_id=" + pageId + "&type=blocks", {
         headers: { "Authorization": "Bearer " + SUPABASE_ANON_KEY, "apikey": SUPABASE_ANON_KEY },
       });
-      const data = await res.json();
-      if (data.error || !data.results) throw new Error(data.error || "불러오기 실패");
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); } catch { throw new Error("응답 파싱 실패: " + text.slice(0, 100)); }
+      if (!res.ok) throw new Error("HTTP " + res.status + ": " + (data.message || data.error || text.slice(0,100)));
+      if (data.object === "error") throw new Error("Notion: " + data.message);
       if (pushStack) setManualStack(prev => [...prev, pushStack]);
-      setManualBlocks(data.results);
+      setManualBlocks(data.results || []);
       setManualTitle(title);
     } catch (e) {
       setManualError(e.message);
