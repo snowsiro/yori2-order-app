@@ -1598,7 +1598,7 @@ export default function App() {
 }
 
 const styles = {
-  app: { minHeight:"100vh", background:"#0f0f18", color:"#e8e8f0", fontFamily:"'Noto Sans KR','Noto Sans',sans-serif" },
+  app: { minHeight:"100vh", background:"#0f0f18", color:"#e8e8f0", fontFamily:"'Noto Sans KR','Noto Sans',sans-serif", overflowX:"hidden" },
   loginWrap: { minHeight:"100vh", background:"#0f0f18", display:"flex", alignItems:"center", justifyContent:"center", padding:16 },
   loginCard: { background:"#1a1a2e", border:"1px solid #2a2a4a", borderRadius:20, padding:"36px 28px", width:"100%", maxWidth:360, textAlign:"center" },
   logo: { width:120, height:120, objectFit:"contain", borderRadius:12, display:"block", margin:"0 auto 12px auto" },
@@ -1619,7 +1619,7 @@ const styles = {
   headerUser: { fontSize:11, color:"#888" },
   headerRight: { display:"flex", alignItems:"center", gap:8 },
   logoutBtn: { background:"transparent", border:"1px solid #333", color:"#888", borderRadius:8, padding:"5px 10px", cursor:"pointer", fontSize:12 },
-  nav: { background:"#13131f", borderBottom:"1px solid #1e1e30", display:"flex", padding:"0 8px" },
+  nav: { background:"#13131f", borderBottom:"1px solid #1e1e30", display:"flex", padding:"0 8px", width:"100%", boxSizing:"border-box", overflowX:"auto", WebkitOverflowScrolling:"touch" },
   navBtn: { flex:"0 0 auto", background:"transparent", border:"none", borderBottom:"3px solid transparent", color:"#888", padding:"13px 10px", cursor:"pointer", fontSize:12, position:"relative", whiteSpace:"nowrap" },
   navActive: { flex:"0 0 auto", background:"transparent", border:"none", borderBottom:"3px solid #fff", color:"#e8e8f0", padding:"13px 10px", cursor:"pointer", fontSize:12, fontWeight:600, position:"relative", whiteSpace:"nowrap" },
   badge: { background:"#e8472a", color:"#fff", borderRadius:10, padding:"1px 6px", fontSize:11, marginLeft:6 },
