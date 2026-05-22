@@ -380,12 +380,37 @@ export default function App() {
 
   function renderNotionBlock(block) {
     const rt = (richText) => richText?.map((r, i) => {
-      let text = r.plain_text;
       let style = {};
       if (r.annotations?.bold) style.fontWeight = "700";
       if (r.annotations?.italic) style.fontStyle = "italic";
+      if (r.annotations?.underline) style.textDecoration = "underline";
+      if (r.annotations?.strikethrough) style.textDecoration = "line-through";
+      if (r.annotations?.code) {
+        style.fontFamily = "monospace";
+        style.background = "#1a1a2e";
+        style.padding = "1px 5px";
+        style.borderRadius = 3;
+        style.fontSize = 12;
+      }
       if (r.annotations?.color && r.annotations.color !== "default") style.color = "#f5a623";
-      return <span key={i} style={style}>{text}</span>;
+
+      if (r.type === "mention" && r.mention?.type === "page") {
+        return (
+          <span key={i} style={{color:"#7b8cde",textDecoration:"underline",cursor:"pointer",...style}}
+            onClick={() => loadManualPage(r.mention.page.id, r.plain_text, {id: block.id, title: manualTitle})}>
+            {r.plain_text}
+          </span>
+        );
+      }
+      if (r.href) {
+        return (
+          <a key={i} href={r.href} target="_blank" rel="noopener noreferrer"
+            style={{color:"#7b8cde",textDecoration:"underline",...style}}>
+            {r.plain_text}
+          </a>
+        );
+      }
+      return <span key={i} style={style}>{r.plain_text}</span>;
     });
 
     switch (block.type) {
@@ -433,6 +458,31 @@ export default function App() {
       case "callout": return (
         <div key={block.id} style={{background:"#1e1e2e",border:"1px solid #2a2a3e",borderRadius:8,padding:"10px 12px",marginBottom:8,fontSize:13,color:"#b0b0c8"}}>
           {block.callout.icon?.emoji} {rt(block.callout.rich_text)}
+        </div>
+      );
+      case "image": {
+        const url = block.image?.external?.url || block.image?.file?.url || "";
+        const caption = block.image?.caption?.map(r => r.plain_text).join("") || "";
+        return url ? (
+          <div key={block.id} style={{margin:"10px 0",textAlign:"center"}}>
+            <img src={url} alt={caption} style={{maxWidth:"100%",borderRadius:8,border:"1px solid #2a2a3e"}}/>
+            {caption && <div style={{fontSize:11,color:"#666",marginTop:4}}>{caption}</div>}
+          </div>
+        ) : null;
+      }
+      case "to_do": return (
+        <div key={block.id} style={{fontSize:13,color:"#b0b0c8",lineHeight:1.6,marginBottom:4,paddingLeft:4,display:"flex",gap:8,alignItems:"flex-start"}}>
+          <span style={{color: block.to_do.checked ? "#7b8cde" : "#444", fontSize:15}}>
+            {block.to_do.checked ? "☑" : "☐"}
+          </span>
+          <span style={{textDecoration: block.to_do.checked ? "line-through" : "none", opacity: block.to_do.checked ? 0.5 : 1}}>
+            {rt(block.to_do.rich_text)}
+          </span>
+        </div>
+      );
+      case "quote": return (
+        <div key={block.id} style={{borderLeft:"3px solid #7b8cde",paddingLeft:12,margin:"8px 0",fontSize:13,color:"#888",fontStyle:"italic"}}>
+          {rt(block.quote.rich_text)}
         </div>
       );
       default: return null;
