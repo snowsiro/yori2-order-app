@@ -320,7 +320,7 @@ export default function App() {
     loadStaff();
   }
 
-  const SCHEDULE_CSV_BASE = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRKogyhrPk7ydci6abMVbZftoG26Q5_xXXD0ZlefyhaRqHHLwH5PkQz0dtGkbYN9Lxl1o5Ned-ft9ED/pub?output=csv";
+  const SCHEDULE_SHEET_ID = "10RT9066l2p_yXcyzZsbzWt8MI4G5AUYfBySJtPZNS40";
   const MONTH_DE = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
 
   function parseScheduleCSV(csv) {
@@ -380,7 +380,8 @@ export default function App() {
     setScheduleError("");
     const sheet = MONTH_DE[monthIdx];
     try {
-      const res = await fetch(`${SCHEDULE_CSV_BASE}&sheet=${encodeURIComponent(sheet)}`);
+      const url = `https://docs.google.com/spreadsheets/d/${SCHEDULE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheet)}`;
+      const res = await fetch(url);
       if (!res.ok) throw new Error("fetch failed");
       const csv = await res.text();
       const parsed = parseScheduleCSV(csv);
