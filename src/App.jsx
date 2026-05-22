@@ -937,7 +937,7 @@ export default function App() {
             {announcements.map(a => (
               <div key={a.id} style={{background:"#1e1e2e",border:"1px solid #2a2a3e",borderRadius:12,padding:"14px 16px",marginBottom:10}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                  <div style={{fontSize:11,color:"#888"}}>{a.author_name} · {new Date(a.created_at).toLocaleDateString(lang==="ko"?"ko-KR":"de-DE",{month:"short",day:"numeric"})}</div>
+                  <div style={{fontSize:11,color:"#888"}}>{a.author_name} · {new Date(a.created_at).toLocaleDateString(lang==="ko"?"ko-KR":"de-DE",{month:"short",day:"numeric"})} {new Date(a.created_at).toLocaleTimeString(lang==="ko"?"ko-KR":"de-DE",{hour:"2-digit",minute:"2-digit"})}</div>
                   {currentUser.role === "owner" && (
                     <button onClick={()=>handleDeleteAnnounce(a.id)} style={{background:"transparent",border:"none",color:"#555",cursor:"pointer",fontSize:16,padding:0,lineHeight:1}}>✕</button>
                   )}
