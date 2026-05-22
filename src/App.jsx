@@ -660,20 +660,15 @@ export default function App() {
           <div>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
               <div style={{fontWeight:700,fontSize:15,color:"#e8e8f0"}}>📅 {t("근무일정","Dienstplan")}</div>
-              <div style={{display:"flex",gap:6}}>
-                {MONTH_DE.map((m, i) => (
-                  <button
-                    key={m}
-                    style={{
-                      ...styles.copyBtn,
-                      ...(i === (scheduleData ? (new Date().getMonth()) : new Date().getMonth()) ? {} : {}),
-                      fontSize:10, padding:"3px 6px",
-                      background: "#1e1e2e", color:"#aaa"
-                    }}
-                    onClick={()=>{ loadSchedule(i); }}
-                  >{m.slice(0,3)}</button>
+              <select
+                style={{background:"#1e1e2e",color:"#e8e8f0",border:"1px solid #333",borderRadius:8,padding:"4px 8px",fontSize:13}}
+                defaultValue={new Date().getMonth()}
+                onChange={e=>loadSchedule(Number(e.target.value))}
+              >
+                {MONTH_DE.map((m,i)=>(
+                  <option key={m} value={i}>{m}</option>
                 ))}
-              </div>
+              </select>
             </div>
 
             {scheduleLoading && <div style={{color:"#888",textAlign:"center",padding:30}}>{t("불러오는 중...","Laden...")}</div>}
