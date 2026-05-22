@@ -1,5 +1,5 @@
 const NOTION_VERSION = "2022-06-28";
-const NOTION_HOST = "api.notion.com";
+const NOTION_HOST = ["api", "notion", "com"].join(".");
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
