@@ -234,6 +234,7 @@ export default function App() {
   const [manualError, setManualError] = useState("");
   const [manualStack, setManualStack] = useState([]); // [{id, title}]
   const [manualTitle, setManualTitle] = useState("메뉴얼");
+  const [manualCurrentId, setManualCurrentId] = useState(MANUAL_ROOT_ID);
   // announce & notes
   const [announcements, setAnnouncements] = useState([]);
   const [dailyNotes, setDailyNotes] = useState([]);
@@ -387,6 +388,7 @@ export default function App() {
       const blocks = data.results || [];
       setManualBlocks(blocks);
       setManualTitle(title);
+      setManualCurrentId(pageId);
       if (!pushStack) {
         try { localStorage.setItem("yori2_manual_cache", JSON.stringify(blocks)); } catch (_) {}
       }
@@ -429,6 +431,17 @@ export default function App() {
         );
       }
       if (r.href) {
+        const notionMatch = r.href.match(/notion\.so\/(?:[^/]+-)?([a-f0-9]{32})(?:\?|#|$)/i)
+          || r.href.match(/notion\.so\/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})(?:\?|#|$)/i);
+        if (notionMatch) {
+          const targetId = notionMatch[1].replace(/-/g, "");
+          return (
+            <span key={i} style={{color:"#7b8cde",textDecoration:"underline",cursor:"pointer",...style}}
+              onClick={() => { setPage("manual"); loadManualPage(targetId, r.plain_text, {id: manualCurrentId || MANUAL_ROOT_ID, title: manualTitle}); }}>
+              {r.plain_text}
+            </span>
+          );
+        }
         return (
           <a key={i} href={r.href} target="_blank" rel="noopener noreferrer"
             style={{color:"#7b8cde",textDecoration:"underline",...style}}>
