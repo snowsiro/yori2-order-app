@@ -320,7 +320,7 @@ export default function App() {
     loadStaff();
   }
 
-  const SCHEDULE_SHEET_ID = "10RT9066l2p_yXcyzZsbzWt8MI4G5AUYfBySJtPZNS40";
+  const SCHEDULE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwCuAzLs9Q21J3clBQpmmuV5FAfIKp5Ict9SqlaL1T_mIWbC2gKC4ZSUTuDGrz573QI/exec";
   const MONTH_DE = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
 
   function parseScheduleCSV(csv) {
@@ -379,31 +379,21 @@ export default function App() {
     setScheduleLoading(true);
     setScheduleError("");
     const sheet = MONTH_DE[monthIdx];
-    const urls = [
-      `https://docs.google.com/spreadsheets/d/${SCHEDULE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheet)}`,
-      `https://docs.google.com/spreadsheets/d/${SCHEDULE_SHEET_ID}/export?format=csv&sheet=${encodeURIComponent(sheet)}`,
-    ];
-    let lastError = "";
-    for (const url of urls) {
-      try {
-        const res = await fetch(url);
-        if (!res.ok) { lastError = `HTTP ${res.status}`; continue; }
-        const csv = await res.text();
-        if (csv.includes("<!DOCTYPE") || csv.includes("<html")) { lastError = "로그인 필요 (시트 공개 설정 확인)"; continue; }
-        const parsed = parseScheduleCSV(csv);
-        if (!parsed) { lastError = "파싱 실패"; continue; }
-        setScheduleData(parsed);
-        const today = new Date();
-        const idx = parsed.weeks.findIndex(w => w.dates.some(d => d.day === today.getDate() && d.month === today.getMonth() + 1));
-        setScheduleWeekIndex(idx >= 0 ? idx : 0);
-        setScheduleLoading(false);
-        return;
-      } catch (e) {
-        lastError = `네트워크 오류: ${e.message}`;
-        console.error("Schedule fetch error:", url, e);
-      }
+    try {
+      const res = await fetch(`${SCHEDULE_SCRIPT_URL}?month=${encodeURIComponent(sheet)}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const csv = await res.text();
+      if (csv.includes("<!DOCTYPE") || csv.includes("<html")) throw new Error("인증 오류");
+      const parsed = parseScheduleCSV(csv);
+      if (!parsed) throw new Error("파싱 실패");
+      setScheduleData(parsed);
+      const today = new Date();
+      const idx = parsed.weeks.findIndex(w => w.dates.some(d => d.day === today.getDate() && d.month === today.getMonth() + 1));
+      setScheduleWeekIndex(idx >= 0 ? idx : 0);
+    } catch (e) {
+      console.error("Schedule fetch error:", e);
+      setScheduleError(`${t("불러오기 실패","Ladefehler")}: ${e.message}`);
     }
-    setScheduleError(`${t("불러오기 실패","Ladefehler")}: ${lastError}`);
     setScheduleLoading(false);
   }
 
