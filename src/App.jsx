@@ -250,6 +250,7 @@ export default function App() {
   });
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [scheduleError, setScheduleError] = useState("");
+  const [scheduleSelectedMonth, setScheduleSelectedMonth] = useState(new Date().getMonth());
   const [scheduleWeekIndex, setScheduleWeekIndex] = useState(() => {
     try {
       const c = JSON.parse(localStorage.getItem("yori2_schedule_cache") || "null");
@@ -574,6 +575,7 @@ export default function App() {
   async function loadSchedule(monthIdx) {
     setScheduleLoading(true);
     setScheduleError("");
+    setScheduleSelectedMonth(monthIdx);
     const sheet = MONTH_DE[monthIdx];
     try {
       const res = await fetch(`${SCHEDULE_SCRIPT_URL}?month=${encodeURIComponent(sheet)}`);
@@ -1019,6 +1021,7 @@ export default function App() {
               const week = scheduleData.weeks[scheduleWeekIndex];
               if (!week) return null;
               const today = new Date();
+              const isViewingCurrentMonth = scheduleSelectedMonth === today.getMonth();
               const SHIFT_COLOR = { O:"#1a3a5c", N:"#2a1a4a", F:"#2a2a2a", "":"#111" };
               const SHIFT_LABEL = { O:"O", N:"N", F:"F" };
               return (
@@ -1035,7 +1038,7 @@ export default function App() {
                   <div style={{display:"grid", gridTemplateColumns:`80px repeat(7, 1fr)`, gap:2, marginBottom:4}}>
                     <div/>
                     {["MO","DI","MI","DO","FR","SA","SO"].map((d,i) => {
-                      const isToday = week.dates[i].day === today.getDate() && week.dates[i].month === today.getMonth()+1;
+                      const isToday = isViewingCurrentMonth && week.dates[i].day === today.getDate() && week.dates[i].month === today.getMonth()+1;
                       const isHoliday = week.dates[i].isHoliday;
                       return (
                         <div key={d} style={{textAlign:"center",fontSize:10,fontWeight:isToday?700:400,
@@ -1056,7 +1059,7 @@ export default function App() {
                     <div key={name} style={{display:"grid", gridTemplateColumns:`80px repeat(7, 1fr)`, gap:2, marginBottom:3}}>
                       <div style={{fontSize:11,fontWeight:600,color:"#c8c8d8",display:"flex",alignItems:"center",paddingRight:4, overflow:"hidden", whiteSpace:"nowrap"}}>{name}</div>
                       {week.staff[name]?.map((shift, di) => {
-                        const isToday = week.dates[di].day === today.getDate() && week.dates[di].month === today.getMonth()+1;
+                        const isToday = isViewingCurrentMonth && week.dates[di].day === today.getDate() && week.dates[di].month === today.getMonth()+1;
                         const isHoliday = week.dates[di].isHoliday;
                         const isVacation = /^U\d*/i.test(shift);
                         const bg = isHoliday ? "#2a0a0a"
