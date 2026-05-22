@@ -28,12 +28,12 @@ Deno.serve(async (req) => {
     }
 
     const notionUrl = type === "page"
-      ? `https://api.notion.com/v1/pages/${pageId}`
-      : `https://api.notion.com/v1/blocks/${pageId}/children?page_size=100`;
+      ? "https://api.notion.com/v1/pages/" + pageId
+      : "https://api.notion.com/v1/blocks/" + pageId + "/children?page_size=100";
 
     const res = await fetch(notionUrl, {
       headers: {
-        "Authorization": `Bearer ${NOTION_TOKEN}`,
+        "Authorization": "Bearer " + NOTION_TOKEN,
         "Notion-Version": NOTION_VERSION,
       },
     });
@@ -42,9 +42,9 @@ Deno.serve(async (req) => {
     let data;
     try {
       data = JSON.parse(text);
-    } catch {
+    } catch (_) {
       return new Response(
-        JSON.stringify({ error: `Notion returned non-JSON (HTTP ${res.status}): ${text.slice(0, 300)}` }),
+        JSON.stringify({ error: "Notion returned non-JSON (HTTP " + res.status + "): " + text.slice(0, 300) }),
         { status: 502, headers: { ...cors, "Content-Type": "application/json" } }
       );
     }
