@@ -225,6 +225,13 @@ export default function App() {
   const [staffLoading, setStaffLoading] = useState(false);
   const [newStaffForm, setNewStaffForm] = useState({email:"", name:""});
   const [staffError, setStaffError] = useState("");
+  // manual
+  const MANUAL_ROOT_ID = "368cbee4b25880da883adcab9d9ca5c1";
+  const [manualBlocks, setManualBlocks] = useState([]);
+  const [manualLoading, setManualLoading] = useState(false);
+  const [manualError, setManualError] = useState("");
+  const [manualStack, setManualStack] = useState([]); // [{id, title}]
+  const [manualTitle, setManualTitle] = useState("메뉴얼");
   // schedule
   const [scheduleData, setScheduleData] = useState(null);
   const [scheduleLoading, setScheduleLoading] = useState(false);
@@ -319,6 +326,95 @@ export default function App() {
     }
     setNewStaffForm({email:"", name:""});
     loadStaff();
+  }
+
+  const NOTION_PROXY = "https://oitrivgffkdhkedhydqw.supabase.co/functions/v1/notion-proxy";
+
+  async function loadManualPage(pageId, title, pushStack) {
+    setManualLoading(true);
+    setManualError("");
+    try {
+      const res = await fetch(NOTION_PROXY + "?page_id=" + pageId + "&type=blocks", {
+        headers: { "Authorization": "Bearer " + SUPABASE_ANON_KEY, "apikey": SUPABASE_ANON_KEY },
+      });
+      const data = await res.json();
+      if (data.error || !data.results) throw new Error(data.error || "불러오기 실패");
+      if (pushStack) setManualStack(prev => [...prev, pushStack]);
+      setManualBlocks(data.results);
+      setManualTitle(title);
+    } catch (e) {
+      setManualError(e.message);
+    }
+    setManualLoading(false);
+  }
+
+  function manualGoBack() {
+    const prev = manualStack[manualStack.length - 1];
+    const newStack = manualStack.slice(0, -1);
+    setManualStack(newStack);
+    loadManualPage(prev.id, prev.title, null);
+    setManualBlocks([]);
+  }
+
+  function renderNotionBlock(block) {
+    const rt = (richText) => richText?.map((r, i) => {
+      let text = r.plain_text;
+      let style = {};
+      if (r.annotations?.bold) style.fontWeight = "700";
+      if (r.annotations?.italic) style.fontStyle = "italic";
+      if (r.annotations?.color && r.annotations.color !== "default") style.color = "#f5a623";
+      return <span key={i} style={style}>{text}</span>;
+    });
+
+    switch (block.type) {
+      case "heading_1": return (
+        <div key={block.id} style={{fontSize:18,fontWeight:700,color:"#e8e8f0",margin:"18px 0 8px",borderBottom:"1px solid #2a2a3e",paddingBottom:6}}>
+          {rt(block.heading_1.rich_text)}
+        </div>
+      );
+      case "heading_2": return (
+        <div key={block.id} style={{fontSize:15,fontWeight:700,color:"#c8c8d8",margin:"14px 0 6px"}}>
+          {rt(block.heading_2.rich_text)}
+        </div>
+      );
+      case "heading_3": return (
+        <div key={block.id} style={{fontSize:13,fontWeight:700,color:"#a8a8c8",margin:"10px 0 4px"}}>
+          {rt(block.heading_3.rich_text)}
+        </div>
+      );
+      case "paragraph": return (
+        <div key={block.id} style={{fontSize:13,color:"#b0b0c8",lineHeight:1.6,marginBottom:6}}>
+          {rt(block.paragraph.rich_text) || <br/>}
+        </div>
+      );
+      case "bulleted_list_item": return (
+        <div key={block.id} style={{fontSize:13,color:"#b0b0c8",lineHeight:1.6,marginBottom:4,paddingLeft:16,display:"flex",gap:6}}>
+          <span style={{color:"#555"}}>•</span><span>{rt(block.bulleted_list_item.rich_text)}</span>
+        </div>
+      );
+      case "numbered_list_item": return (
+        <div key={block.id} style={{fontSize:13,color:"#b0b0c8",lineHeight:1.6,marginBottom:4,paddingLeft:16}}>
+          {rt(block.numbered_list_item.rich_text)}
+        </div>
+      );
+      case "divider": return (
+        <div key={block.id} style={{borderTop:"1px solid #2a2a3e",margin:"12px 0"}}/>
+      );
+      case "child_page": return (
+        <div key={block.id}
+          onClick={() => loadManualPage(block.id, block.child_page.title, {id: manualStack.length === 0 ? MANUAL_ROOT_ID : block.id, title: manualTitle})}
+          style={{...styles.historyCard, display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8, cursor:"pointer"}}>
+          <div style={{fontWeight:600,fontSize:13,color:"#e8e8f0"}}>📄 {block.child_page.title}</div>
+          <div style={{color:"#555",fontSize:18}}>›</div>
+        </div>
+      );
+      case "callout": return (
+        <div key={block.id} style={{background:"#1e1e2e",border:"1px solid #2a2a3e",borderRadius:8,padding:"10px 12px",marginBottom:8,fontSize:13,color:"#b0b0c8"}}>
+          {block.callout.icon?.emoji} {rt(block.callout.rich_text)}
+        </div>
+      );
+      default: return null;
+    }
   }
 
   const SCHEDULE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwCuAzLs9Q21J3clBQpmmuV5FAfIKp5Ict9SqlaL1T_mIWbC2gKC4ZSUTuDGrz573QI/exec";
@@ -602,6 +698,9 @@ export default function App() {
         <button style={page==="schedule"?styles.navActive:styles.navBtn} onClick={()=>{setPage("schedule"); if(!scheduleData) loadSchedule(new Date().getMonth());}}>
           📅 {t("근무일정","Dienstplan")}
         </button>
+        <button style={page==="manual"?styles.navActive:styles.navBtn} onClick={()=>{setPage("manual"); if(manualBlocks.length===0) loadManualPage(MANUAL_ROOT_ID,"메뉴얼",null);}}>
+          📖 {t("메뉴얼","Handbuch")}
+        </button>
         <button style={page==="order"?styles.navActive:styles.navBtn} onClick={()=>{setPage("order");handleNewOrder();}}>
           📦 {t("발주","Bestellung")}
         </button>
@@ -630,7 +729,7 @@ export default function App() {
             {[
               { icon:"📅", label:t("근무일정","Dienstplan"), sub:t("이번 주 근무표 확인","Dienstplan ansehen"), action:()=>{ setPage("schedule"); if(!scheduleData) loadSchedule(new Date().getMonth()); } },
               { icon:"📦", label:t("식자재 발주","Bestellung"), sub:t("공급업체에 발주서 작성","Bestellung aufgeben"), action:()=>{ setPage("order"); handleNewOrder(); } },
-              { icon:"📖", label:t("식당 메뉴얼","Handbuch"), sub:t("준비 중","Demnächst verfügbar"), action: null },
+              { icon:"📖", label:t("식당 메뉴얼","Handbuch"), sub:t("레시피 및 운영 메뉴얼","Rezepte & Handbuch"), action:()=>{ setPage("manual"); if(manualBlocks.length===0) loadManualPage(MANUAL_ROOT_ID,"메뉴얼",null); } },
             ].map(item => (
               <div
                 key={item.label}
@@ -656,6 +755,20 @@ export default function App() {
                 {item.action && <div style={{marginLeft:"auto",color:"#555",fontSize:18}}>›</div>}
               </div>
             ))}
+          </div>
+        )}
+
+        {page === "manual" && (
+          <div>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16}}>
+              {manualStack.length > 0 && (
+                <button style={styles.backBtn} onClick={manualGoBack}>←</button>
+              )}
+              <div style={{fontWeight:700,fontSize:15,color:"#e8e8f0"}}>📖 {manualTitle}</div>
+            </div>
+            {manualLoading && <div style={{color:"#888",textAlign:"center",padding:30}}>{t("불러오는 중...","Laden...")}</div>}
+            {manualError && <div style={styles.error}>{manualError}</div>}
+            {!manualLoading && manualBlocks.map(block => renderNotionBlock(block))}
           </div>
         )}
 
