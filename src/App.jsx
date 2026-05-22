@@ -219,6 +219,11 @@ export default function App() {
   const [newSupplierForm, setNewSupplierForm] = useState({name_ko:"",name_de:"",channel:"whatsapp",icon:"📦",color:"#888888"});
   const [newItemForm, setNewItemForm] = useState({name_ko:"",name_de:"",unit:""});
   const [settingsView, setSettingsView] = useState("list");
+  // staff management
+  const [staffUsers, setStaffUsers] = useState([]);
+  const [staffLoading, setStaffLoading] = useState(false);
+  const [newStaffForm, setNewStaffForm] = useState({email:"", name:""});
+  const [staffError, setStaffError] = useState("");
 
   useEffect(() => {
     supabase
@@ -269,6 +274,38 @@ export default function App() {
   }
 
   const t = (ko, de) => lang === "ko" ? ko : de;
+
+  async function loadStaff() {
+    setStaffLoading(true);
+    const { data, error } = await supabase.from("users").select("id, email, name, role").order("role", { ascending: false });
+    if (!error && data) setStaffUsers(data);
+    setStaffLoading(false);
+  }
+
+  async function handleAddStaff() {
+    if (!newStaffForm.email.trim() || !newStaffForm.name.trim()) return;
+    setStaffError("");
+    const { error } = await supabase.from("users").insert({
+      email: newStaffForm.email.trim().toLowerCase(),
+      name: newStaffForm.name.trim(),
+      role: "staff"
+    });
+    if (error) {
+      setStaffError(error.code === "23505"
+        ? t("이미 등록된 이메일입니다.", "E-Mail bereits registriert.")
+        : t("오류가 발생했습니다.", "Ein Fehler ist aufgetreten."));
+      return;
+    }
+    setNewStaffForm({email:"", name:""});
+    loadStaff();
+  }
+
+  async function handleRemoveStaff(user) {
+    if (user.role === "owner") return;
+    if (!window.confirm(t(`"${user.name}"을(를) 삭제하시겠습니까?`, `"${user.name}" löschen?`))) return;
+    const { error } = await supabase.from("users").delete().eq("id", user.id);
+    if (!error) setStaffUsers(prev => prev.filter(u => u.id !== user.id));
+  }
 
   async function handleLogin() {
     setLoginLoading(true);
@@ -631,6 +668,20 @@ export default function App() {
           <div>
             <div style={styles.sectionTitle}>⚙️ {t("설정","Einstellungen")}</div>
 
+            {/* 탭 네비게이션 */}
+            {settingsView !== "items" && (
+              <div style={{display:"flex",gap:6,marginBottom:14}}>
+                <button
+                  style={settingsView==="list"?styles.navActive:styles.navBtn}
+                  onClick={()=>setSettingsView("list")}
+                >📦 {t("공급업체","Lieferanten")}</button>
+                <button
+                  style={settingsView==="staff"?styles.navActive:styles.navBtn}
+                  onClick={()=>{ setSettingsView("staff"); loadStaff(); }}
+                >👥 {t("직원","Personal")}</button>
+              </div>
+            )}
+
             {settingsView === "list" && (
               <>
                 <div style={{marginBottom:12,fontSize:13,color:"#aaa"}}>{t("공급업체를 선택해 품목을 관리하세요","Lieferant auswählen zum Verwalten")}</div>
@@ -749,6 +800,51 @@ export default function App() {
                     syncSupplierToDb(updatedSup);
                     setNewItemForm({name_ko:"",name_de:"",unit:""});
                   }}>{t("추가","Hinzufügen")}</button>
+                </div>
+              </>
+            )}
+
+            {settingsView === "staff" && (
+              <>
+                {staffLoading ? (
+                  <div style={{color:"#888",fontSize:13,textAlign:"center",padding:20}}>{t("불러오는 중...","Laden...")}</div>
+                ) : (
+                  staffUsers.map(user => (
+                    <div key={user.id} style={{...styles.historyCard, display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8}}>
+                      <div>
+                        <div style={{fontWeight:600,fontSize:13,color:"#e8e8f0"}}>{user.name}</div>
+                        <div style={{fontSize:11,color:"#888"}}>{user.email}</div>
+                        {user.role === "owner" && <div style={{fontSize:10,color:"#f5a623",marginTop:2}}>👑 {t("관리자","Admin")}</div>}
+                      </div>
+                      {user.role !== "owner" && (
+                        <button
+                          style={{...styles.copyBtn,background:"#2a1a1a",color:"#e87a7a"}}
+                          onClick={()=>handleRemoveStaff(user)}
+                        >✕</button>
+                      )}
+                    </div>
+                  ))
+                )}
+                <div style={{...styles.historyCard,marginTop:16}}>
+                  <div style={{fontWeight:600,fontSize:13,color:"#e8e8f0",marginBottom:10}}>➕ {t("새 직원 추가","Neuen Mitarbeiter hinzufügen")}</div>
+                  <input
+                    style={{...styles.input,marginBottom:6}}
+                    placeholder={t("이름","Name")}
+                    value={newStaffForm.name}
+                    onChange={e=>setNewStaffForm(p=>({...p,name:e.target.value}))}
+                  />
+                  <input
+                    style={{...styles.input,marginBottom:8}}
+                    type="email"
+                    placeholder={t("이메일 주소","E-Mail-Adresse")}
+                    value={newStaffForm.email}
+                    onChange={e=>setNewStaffForm(p=>({...p,email:e.target.value}))}
+                    onKeyDown={e=>e.key==="Enter"&&handleAddStaff()}
+                  />
+                  {staffError && <div style={{...styles.error,marginBottom:8}}>{staffError}</div>}
+                  <button style={styles.primaryBtn} onClick={handleAddStaff}>
+                    {t("추가","Hinzufügen")}
+                  </button>
                 </div>
               </>
             )}
