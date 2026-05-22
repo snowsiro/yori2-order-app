@@ -724,12 +724,12 @@ export default function App() {
         </details>
       );
       case "column_list": return (
-        <div key={block.id} style={{display:"flex",gap:12,marginBottom:8,flexWrap:"wrap"}}>
+        <div key={block.id} style={{display:"flex",flexDirection:"column",gap:8,marginBottom:8}}>
           {block._children?.map(c => renderNotionBlock(c))}
         </div>
       );
       case "column": return (
-        <div key={block.id} style={{flex:"1 1 140px"}}>
+        <div key={block.id} style={{width:"100%"}}>
           {block._children?.map(c => renderNotionBlock(c))}
         </div>
       );
