@@ -219,7 +219,8 @@ export default function App() {
   const [pwError, setPwError] = useState("");
   const [pendingUser, setPendingUser] = useState(null);
   // owner settings state
-  const [suppliers, setSuppliers] = useState(SUPPLIERS);
+  const [suppliers, setSuppliers] = useState([]);
+  const [suppliersLoading, setSuppliersLoading] = useState(true);
   const [editingSupplier, setEditingSupplier] = useState(null);
   const [editingItem, setEditingItem] = useState(null);
   const [newSupplierForm, setNewSupplierForm] = useState({name_ko:"",name_de:"",channel:"whatsapp",icon:"📦",color:"#888888"});
@@ -250,7 +251,29 @@ export default function App() {
         }
         setOrdersLoading(false);
       });
-  }, []); // list | supplier | items
+  }, []); // orders
+
+  useEffect(() => {
+    supabase.from("suppliers").select("*").then(({ data, error }) => {
+      if (error) { console.error("Supabase suppliers fetch error:", error); setSuppliersLoading(false); return; }
+      if (data && data.length > 0) {
+        setSuppliers(data.map(row => ({ id: row.id, name: row.name, channel: row.channel, icon: row.icon, color: row.color, items: row.items })));
+        setSuppliersLoading(false);
+      } else {
+        const seed = SUPPLIERS.map((s, i) => ({ id: s.id, name: s.name, channel: s.channel, icon: s.icon, color: s.color, sort_order: i, items: s.items }));
+        supabase.from("suppliers").insert(seed).then(({ error: e }) => {
+          if (e) console.error("Supabase suppliers seed error:", e);
+          else setSuppliers(SUPPLIERS);
+          setSuppliersLoading(false);
+        });
+      }
+    });
+  }, []); // suppliers
+
+  function syncSupplierToDb(supplier) {
+    supabase.from("suppliers").upsert({ id: supplier.id, name: supplier.name, channel: supplier.channel, icon: supplier.icon, color: supplier.color, items: supplier.items })
+      .then(({ error }) => { if (error) console.error("Supabase supplier sync error:", error); });
+  }
 
   const t = (ko, de) => lang === "ko" ? ko : de;
 
@@ -616,8 +639,10 @@ export default function App() {
                         {t("품목 관리","Artikel")}
                       </button>
                       <button style={{...styles.copyBtn,background:"#2a1a1a",color:"#e87a7a"}} onClick={()=>{
-                        if(window.confirm(t("삭제하시겠습니까?","Löschen?")))
+                        if(window.confirm(t("삭제하시겠습니까?","Löschen?"))) {
                           setSuppliers(prev=>prev.filter(x=>x.id!==s.id));
+                          supabase.from("suppliers").delete().eq("id",s.id).then(({error})=>{ if(error) console.error("Supabase supplier delete error:",error); });
+                        }
                       }}>✕</button>
                     </div>
                   </div>
@@ -647,6 +672,7 @@ export default function App() {
                       items:[]
                     };
                     setSuppliers(prev=>[...prev,newS]);
+                    syncSupplierToDb(newS);
                     setNewSupplierForm({name_ko:"",name_de:"",channel:"whatsapp",icon:"📦",color:"#888888"});
                   }}>{t("추가","Hinzufügen")}</button>
                 </div>
@@ -668,7 +694,10 @@ export default function App() {
                         <input style={{...styles.input,marginBottom:6}} value={editingItem.unit} onChange={e=>setEditingItem(p=>({...p,unit:e.target.value}))} placeholder={t("단위","Einheit")} />
                         <div style={{display:"flex",gap:6}}>
                           <button style={{...styles.doneBtn,flex:1}} onClick={()=>{
-                            setSuppliers(prev=>prev.map(s=>s.id===editingSupplier.id?{...s,items:s.items.map(it=>it.id===editingItem.id?editingItem:it)}:s));
+                            const updatedSup = {...suppliers.find(s=>s.id===editingSupplier.id)};
+                            updatedSup.items = updatedSup.items.map(it=>it.id===editingItem.id?editingItem:it);
+                            setSuppliers(prev=>prev.map(s=>s.id===editingSupplier.id?updatedSup:s));
+                            syncSupplierToDb(updatedSup);
                             setEditingItem(null);
                           }}>{t("저장","Speichern")}</button>
                           <button style={styles.copyBtn} onClick={()=>setEditingItem(null)}>{t("취소","Abbrechen")}</button>
@@ -683,7 +712,10 @@ export default function App() {
                         <div style={{display:"flex",gap:5}}>
                           <button style={styles.copyBtn} onClick={()=>setEditingItem({...item})}>{t("수정","Edit")}</button>
                           <button style={{...styles.copyBtn,background:"#2a1a1a",color:"#e87a7a"}} onClick={()=>{
-                            setSuppliers(prev=>prev.map(s=>s.id===editingSupplier.id?{...s,items:s.items.filter(it=>it.id!==item.id)}:s));
+                            const updatedSup = {...suppliers.find(s=>s.id===editingSupplier.id)};
+                            updatedSup.items = updatedSup.items.filter(it=>it.id!==item.id);
+                            setSuppliers(prev=>prev.map(s=>s.id===editingSupplier.id?updatedSup:s));
+                            syncSupplierToDb(updatedSup);
                           }}>✕</button>
                         </div>
                       </>
@@ -702,7 +734,10 @@ export default function App() {
                       name:{ko:newItemForm.name_ko, de:newItemForm.name_de||newItemForm.name_ko},
                       unit:newItemForm.unit||"Stk"
                     };
-                    setSuppliers(prev=>prev.map(s=>s.id===editingSupplier.id?{...s,items:[...s.items,newItem]}:s));
+                    const curSup = suppliers.find(s=>s.id===editingSupplier.id);
+                    const updatedSup = {...curSup, items:[...curSup.items, newItem]};
+                    setSuppliers(prev=>prev.map(s=>s.id===editingSupplier.id?updatedSup:s));
+                    syncSupplierToDb(updatedSup);
                     setNewItemForm({name_ko:"",name_de:"",unit:""});
                   }}>{t("추가","Hinzufügen")}</button>
                 </div>
