@@ -709,8 +709,8 @@ export default function App() {
                       <div style={{fontSize:11,fontWeight:600,color:"#c8c8d8",display:"flex",alignItems:"center",paddingRight:4, overflow:"hidden", whiteSpace:"nowrap"}}>{name}</div>
                       {week.staff[name]?.map((shift, di) => {
                         const isToday = week.dates[di].day === today.getDate() && week.dates[di].month === today.getMonth()+1;
-                        const bg = shift === "O" ? "#1a3a5c" : shift === "N" ? "#2d1a4a" : shift === "F" ? "#222" : shift ? "#1a2e1a" : "#161622";
-                        const color = shift === "O" ? "#7ab8f5" : shift === "N" ? "#c89eff" : shift === "F" ? "#555" : shift ? "#7fd88a" : "#333";
+                        const bg = shift === "O" ? "#1a3a5c" : shift === "N" ? "#2d1a4a" : shift === "F" ? "#1a2e1a" : shift ? "#1a2a2a" : "#161622";
+                        const color = shift === "O" ? "#7ab8f5" : shift === "N" ? "#c89eff" : shift === "F" ? "#7fd88a" : shift ? "#a0d0c0" : "#333";
                         return (
                           <div key={di} style={{
                             background: isToday ? (bg==="#161622"?"#1a1a10":bg) : bg,
@@ -728,7 +728,7 @@ export default function App() {
                   ))}
 
                   <div style={{marginTop:14,fontSize:11,color:"#555",display:"flex",gap:12,flexWrap:"wrap"}}>
-                    {[["O","#7ab8f5",t("오픈","Open")],["N","#c89eff",t("야간","Nacht")],["F","#555",t("휴무","Frei")]].map(([k,c,l])=>(
+                    {[["O","#7ab8f5",t("하루종일","Ganzen Tag")],["N","#c89eff",t("오후","Nacht")],["F","#7fd88a",t("오전","Früh")]].map(([k,c,l])=>(
                       <span key={k}><span style={{color:c,fontWeight:700}}>{k}</span> {l}</span>
                     ))}
                   </div>
