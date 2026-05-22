@@ -542,6 +542,15 @@ export default function App() {
           withChildren.map(b => fetchBlocks(b.id).catch(() => []))
         );
         withChildren.forEach((b, i) => { b._children = childArrays[i]; });
+
+        // 2단계: column, toggle 등 컨테이너 안의 자식도 fetch
+        const level2 = withChildren.flatMap(b => b._children || []).filter(b => b.has_children);
+        if (level2.length > 0) {
+          const grandArrays = await Promise.all(
+            level2.map(b => fetchBlocks(b.id).catch(() => []))
+          );
+          level2.forEach((b, i) => { b._children = grandArrays[i]; });
+        }
       }
 
       if (pushStack) setManualStack(prev => [...prev, pushStack]);
