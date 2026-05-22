@@ -29,16 +29,24 @@ Deno.serve(async (req) => {
     }
 
     const isPage = type === "page";
+    const isDatabase = type === "database";
     const path = isPage
       ? "/v1/pages/" + pageId
+      : isDatabase
+      ? "/v1/databases/" + pageId + "/query"
       : "/v1/blocks/" + pageId + "/children?page_size=100";
     const notionUrl = "https://" + NOTION_HOST + path;
 
+    const fetchHeaders: Record<string, string> = {
+      "Authorization": "Bearer " + NOTION_TOKEN,
+      "Notion-Version": NOTION_VERSION,
+    };
+    if (isDatabase) fetchHeaders["Content-Type"] = "application/json";
+
     const res = await fetch(notionUrl, {
-      headers: {
-        "Authorization": "Bearer " + NOTION_TOKEN,
-        "Notion-Version": NOTION_VERSION,
-      },
+      method: isDatabase ? "POST" : "GET",
+      headers: fetchHeaders,
+      body: isDatabase ? JSON.stringify({ page_size: 100 }) : undefined,
     });
 
     const text = await res.text();

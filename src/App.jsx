@@ -379,8 +379,10 @@ export default function App() {
   });
   const [manualLoading, setManualLoading] = useState(false);
   const [manualError, setManualError] = useState("");
-  const [manualStack, setManualStack] = useState([]); // [{id, title}]
+  const [manualStack, setManualStack] = useState([]); // [{id, title, viewType}]
   const [manualTitle, setManualTitle] = useState("메뉴얼");
+  const [manualViewType, setManualViewType] = useState("blocks"); // "blocks" | "database"
+  const [currentManualId, setCurrentManualId] = useState(null);
   // announce & notes
   const [announcements, setAnnouncements] = useState([]);
   const [dailyNotes, setDailyNotes] = useState([]);
@@ -533,6 +535,8 @@ export default function App() {
       const blocks = (data.results || []).filter(b => !MANUAL_HIDDEN_IDS.includes(b.id));
       setManualBlocks(blocks);
       setManualTitle(title);
+      setManualViewType("blocks");
+      setCurrentManualId(pageId);
       if (!pushStack) {
         try { localStorage.setItem("yori2_manual_cache", JSON.stringify(blocks)); } catch (_) {}
       }
@@ -542,12 +546,38 @@ export default function App() {
     setManualLoading(false);
   }
 
+  async function loadDatabase(dbId, title, pushStack) {
+    setManualLoading(true);
+    setManualError("");
+    try {
+      const res = await fetch(NOTION_PROXY + "?page_id=" + dbId + "&type=database", {
+        headers: { "Authorization": "Bearer " + SUPABASE_ANON_KEY, "apikey": SUPABASE_ANON_KEY },
+      });
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); } catch { throw new Error("응답 파싱 실패: " + text.slice(0, 100)); }
+      if (!res.ok) throw new Error("HTTP " + res.status + ": " + (data.message || data.error || text.slice(0, 100)));
+      if (data.object === "error") throw new Error("Notion: " + data.message);
+      if (pushStack) setManualStack(prev => [...prev, pushStack]);
+      setManualBlocks(data.results || []);
+      setManualTitle(title);
+      setManualViewType("database");
+      setCurrentManualId(dbId);
+    } catch (e) {
+      setManualError(e.message);
+    }
+    setManualLoading(false);
+  }
+
   function manualGoBack() {
     const prev = manualStack[manualStack.length - 1];
-    const newStack = manualStack.slice(0, -1);
-    setManualStack(newStack);
-    loadManualPage(prev.id, prev.title, null);
+    setManualStack(manualStack.slice(0, -1));
     setManualBlocks([]);
+    if (prev.viewType === "database") {
+      loadDatabase(prev.id, prev.title, null);
+    } else {
+      loadManualPage(prev.id, prev.title, null);
+    }
   }
 
   function renderNotionBlock(block) {
@@ -632,7 +662,7 @@ export default function App() {
       case "child_database": if (MANUAL_HIDDEN_IDS.includes(block.id)) return null;
         return (
         <div key={block.id}
-          onClick={() => loadManualPage(block.id, block.child_database.title, {id: manualStack.length === 0 ? MANUAL_ROOT_ID : block.id, title: manualTitle})}
+          onClick={() => loadDatabase(block.id, block.child_database.title, {id: currentManualId || MANUAL_ROOT_ID, title: manualTitle, viewType: "blocks"})}
           style={{...styles.historyCard, display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8, cursor:"pointer"}}>
           <div style={{fontWeight:600,fontSize:13,color:"#e8e8f0"}}>🗄️ {block.child_database.title}</div>
           <div style={{color:"#555",fontSize:18}}>›</div>
@@ -1159,7 +1189,20 @@ export default function App() {
             </div>
             {manualLoading && <div style={{color:"#888",textAlign:"center",padding:30}}>{t("불러오는 중...","Laden...")}</div>}
             {manualError && <div style={styles.error}>{manualError}</div>}
-            {!manualLoading && manualBlocks.map(block => renderNotionBlock(block))}
+            {!manualLoading && manualViewType === "database" && manualBlocks.map(page => {
+              const titleProp = Object.values(page.properties || {}).find(p => p.type === "title");
+              const title = titleProp?.title?.map(t => t.plain_text).join("") || "Untitled";
+              const icon = page.icon?.emoji || "📄";
+              return (
+                <div key={page.id}
+                  onClick={() => loadManualPage(page.id, title, {id: currentManualId, title: manualTitle, viewType: "database"})}
+                  style={{...styles.historyCard, display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8, cursor:"pointer"}}>
+                  <div style={{fontWeight:600,fontSize:13,color:"#e8e8f0"}}>{icon} {title}</div>
+                  <div style={{color:"#555",fontSize:18}}>›</div>
+                </div>
+              );
+            })}
+            {!manualLoading && manualViewType === "blocks" && manualBlocks.map(block => renderNotionBlock(block))}
           </div>
         )}
 
