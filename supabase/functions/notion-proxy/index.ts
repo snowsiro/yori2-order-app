@@ -1,4 +1,5 @@
 const NOTION_VERSION = "2022-06-28";
+const NOTION_HOST = "api.notion.com";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -12,7 +13,7 @@ Deno.serve(async (req) => {
 
   try {
     if (!NOTION_TOKEN) {
-      return new Response(JSON.stringify({ error: "NOTION_TOKEN secret is not set" }), {
+      return new Response(JSON.stringify({ error: "NOTION_TOKEN not set" }), {
         status: 500, headers: { ...cors, "Content-Type": "application/json" },
       });
     }
@@ -27,9 +28,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    const notionUrl = type === "page"
-      ? "https://api.notion.com/v1/pages/" + pageId
-      : "https://api.notion.com/v1/blocks/" + pageId + "/children?page_size=100";
+    const isPage = type === "page";
+    const path = isPage
+      ? "/v1/pages/" + pageId
+      : "/v1/blocks/" + pageId + "/children?page_size=100";
+    const notionUrl = "https://" + NOTION_HOST + path;
 
     const res = await fetch(notionUrl, {
       headers: {
@@ -40,11 +43,10 @@ Deno.serve(async (req) => {
 
     const text = await res.text();
     let data;
-    try {
-      data = JSON.parse(text);
-    } catch (_) {
+    try { data = JSON.parse(text); }
+    catch (_) {
       return new Response(
-        JSON.stringify({ error: "Notion returned non-JSON (HTTP " + res.status + "): " + text.slice(0, 300) }),
+        JSON.stringify({ error: "Notion non-JSON (" + res.status + "): " + text.slice(0, 200) }),
         { status: 502, headers: { ...cors, "Content-Type": "application/json" } }
       );
     }
