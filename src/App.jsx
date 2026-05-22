@@ -602,6 +602,16 @@ export default function App() {
     }
   }
 
+  function extractNotionId(url) {
+    try {
+      const u = new URL(url);
+      if (!u.hostname.includes("notion")) return null;
+      const seg = u.pathname.split("/").pop() || "";
+      const m = seg.match(/([0-9a-f]{32})$/i) || seg.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i);
+      return m ? m[1].replace(/-/g, "") : null;
+    } catch { return null; }
+  }
+
   function renderNotionBlock(block) {
     const rt = (richText) => richText?.map((r, i) => {
       let style = {};
@@ -622,12 +632,21 @@ export default function App() {
         if (MANUAL_HIDDEN_IDS.includes(r.mention.page.id)) return null;
         return (
           <span key={i} style={{color:"#7b8cde",textDecoration:"underline",cursor:"pointer",...style}}
-            onClick={() => loadManualPage(r.mention.page.id, r.plain_text, {id: block.id, title: manualTitle})}>
+            onClick={() => loadManualPage(r.mention.page.id, r.plain_text, {id: currentManualId || MANUAL_ROOT_ID, title: manualTitle, viewType: "blocks"})}>
             {r.plain_text}
           </span>
         );
       }
       if (r.href) {
+        const notionId = extractNotionId(r.href);
+        if (notionId && !MANUAL_HIDDEN_IDS.includes(notionId)) {
+          return (
+            <span key={i} style={{color:"#7b8cde",textDecoration:"underline",cursor:"pointer",...style}}
+              onClick={() => loadManualPage(notionId, r.plain_text, {id: currentManualId || MANUAL_ROOT_ID, title: manualTitle, viewType: "blocks"})}>
+              {r.plain_text}
+            </span>
+          );
+        }
         return (
           <a key={i} href={r.href} target="_blank" rel="noopener noreferrer"
             style={{color:"#7b8cde",textDecoration:"underline",...style}}>
@@ -768,6 +787,18 @@ export default function App() {
           </table>
         </div>
       );
+      case "link_to_page": {
+        const lpId = block.link_to_page?.page_id || block.link_to_page?.database_id || "";
+        if (!lpId || MANUAL_HIDDEN_IDS.includes(lpId)) return null;
+        return (
+          <div key={block.id}
+            onClick={() => loadManualPage(lpId, "페이지", {id: currentManualId || MANUAL_ROOT_ID, title: manualTitle, viewType: "blocks"})}
+            style={{...styles.historyCard, display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8, cursor:"pointer"}}>
+            <div style={{fontWeight:600,fontSize:13,color:"#7b8cde"}}>🔗 {block.link_to_page?.page_id ? "페이지 링크" : "데이터베이스 링크"}</div>
+            <div style={{color:"#555",fontSize:18}}>›</div>
+          </div>
+        );
+      }
       default: return null;
     }
   }
