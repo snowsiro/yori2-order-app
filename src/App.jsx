@@ -373,6 +373,7 @@ export default function App() {
   const [staffError, setStaffError] = useState("");
   // manual
   const MANUAL_ROOT_ID = "368cbee4b25880da883adcab9d9ca5c1";
+  const MANUAL_HIDDEN_IDS = ["368cbee4-b258-81ff-8f09-cae9de48610b"];
   const [manualBlocks, setManualBlocks] = useState(() => {
     try { return JSON.parse(localStorage.getItem("yori2_manual_cache") || "[]"); } catch { return []; }
   });
@@ -529,7 +530,7 @@ export default function App() {
       if (!res.ok) throw new Error("HTTP " + res.status + ": " + (data.message || data.error || text.slice(0,100)));
       if (data.object === "error") throw new Error("Notion: " + data.message);
       if (pushStack) setManualStack(prev => [...prev, pushStack]);
-      const blocks = data.results || [];
+      const blocks = (data.results || []).filter(b => !MANUAL_HIDDEN_IDS.includes(b.id));
       setManualBlocks(blocks);
       setManualTitle(title);
       if (!pushStack) {
@@ -566,6 +567,7 @@ export default function App() {
       if (r.annotations?.color && r.annotations.color !== "default") style.color = "#f5a623";
 
       if (r.type === "mention" && r.mention?.type === "page") {
+        if (MANUAL_HIDDEN_IDS.includes(r.mention.page.id)) return null;
         return (
           <span key={i} style={{color:"#7b8cde",textDecoration:"underline",cursor:"pointer",...style}}
             onClick={() => loadManualPage(r.mention.page.id, r.plain_text, {id: block.id, title: manualTitle})}>
@@ -618,7 +620,8 @@ export default function App() {
       case "divider": return (
         <div key={block.id} style={{borderTop:"1px solid #2a2a3e",margin:"12px 0"}}/>
       );
-      case "child_page": return (
+      case "child_page": if (MANUAL_HIDDEN_IDS.includes(block.id)) return null;
+        return (
         <div key={block.id}
           onClick={() => loadManualPage(block.id, block.child_page.title, {id: manualStack.length === 0 ? MANUAL_ROOT_ID : block.id, title: manualTitle})}
           style={{...styles.historyCard, display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8, cursor:"pointer"}}>
