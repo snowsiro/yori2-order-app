@@ -1302,7 +1302,9 @@ export default function App() {
                 const titleProp = Object.values(page.properties || {}).find(p => p.type === "title");
                 const title = titleProp?.title?.map(t => t.plain_text).join("") || "Untitled";
                 const icon = page.icon?.emoji || "📄";
-                const catProp = Object.values(page.properties || {}).find(p => p.type === "select" || p.type === "multi_select");
+                const props = page.properties || {};
+                const catProp = Object.entries(props).find(([k, v]) => k.toLowerCase() === "kategorie" && (v.type === "select" || v.type === "multi_select"))?.[1]
+                  || Object.values(props).find(p => p.type === "select" || p.type === "multi_select");
                 const categories = catProp
                   ? catProp.type === "select"
                     ? catProp.select ? [catProp.select.name] : []
