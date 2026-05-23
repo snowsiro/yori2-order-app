@@ -383,6 +383,8 @@ export default function App() {
   const [manualTitle, setManualTitle] = useState("메뉴얼");
   const [manualViewType, setManualViewType] = useState("blocks"); // "blocks" | "database"
   const [currentManualId, setCurrentManualId] = useState(null);
+  const [dbSearch, setDbSearch] = useState("");
+  const [dbCategory, setDbCategory] = useState("");
   // announce & notes
   const [announcements, setAnnouncements] = useState([]);
   const [dailyNotes, setDailyNotes] = useState([]);
@@ -586,6 +588,8 @@ export default function App() {
       setManualTitle(title);
       setManualViewType("database");
       setCurrentManualId(dbId);
+      setDbSearch("");
+      setDbCategory("");
     } catch (e) {
       setManualError(e.message);
     }
@@ -1293,19 +1297,87 @@ export default function App() {
             </div>
             {manualLoading && <div style={{color:"#888",textAlign:"center",padding:30}}>{t("불러오는 중...","Laden...")}</div>}
             {manualError && <div style={styles.error}>{manualError}</div>}
-            {!manualLoading && manualViewType === "database" && manualBlocks.map(page => {
-              const titleProp = Object.values(page.properties || {}).find(p => p.type === "title");
-              const title = titleProp?.title?.map(t => t.plain_text).join("") || "Untitled";
-              const icon = page.icon?.emoji || "📄";
+            {!manualLoading && manualViewType === "database" && (() => {
+              const pages = manualBlocks.map(page => {
+                const titleProp = Object.values(page.properties || {}).find(p => p.type === "title");
+                const title = titleProp?.title?.map(t => t.plain_text).join("") || "Untitled";
+                const icon = page.icon?.emoji || "📄";
+                const catProp = Object.values(page.properties || {}).find(p => p.type === "select" || p.type === "multi_select");
+                const categories = catProp
+                  ? catProp.type === "select"
+                    ? catProp.select ? [catProp.select.name] : []
+                    : (catProp.multi_select || []).map(c => c.name)
+                  : [];
+                return { page, title, icon, categories };
+              });
+
+              const allCategories = [...new Set(pages.flatMap(p => p.categories))].filter(Boolean).sort();
+
+              const filtered = pages.filter(({ title, categories }) => {
+                const matchSearch = title.toLowerCase().includes(dbSearch.toLowerCase());
+                const matchCat = !dbCategory || categories.includes(dbCategory);
+                return matchSearch && matchCat;
+              });
+
               return (
-                <div key={page.id}
-                  onClick={() => loadManualPage(page.id, title, {id: currentManualId, title: manualTitle, viewType: "database"})}
-                  style={{...styles.historyCard, display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8, cursor:"pointer"}}>
-                  <div style={{fontWeight:600,fontSize:13,color:"#e8e8f0"}}>{icon} {title}</div>
-                  <div style={{color:"#555",fontSize:18}}>›</div>
+                <div>
+                  {/* 검색창 */}
+                  <div style={{position:"relative", marginBottom:10}}>
+                    <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"#555",fontSize:14}}>🔍</span>
+                    <input
+                      value={dbSearch}
+                      onChange={e => setDbSearch(e.target.value)}
+                      placeholder={t("레시피 검색...","Rezept suchen...")}
+                      style={{width:"100%",boxSizing:"border-box",background:"#1a1a2e",border:"1px solid #333",borderRadius:8,color:"#e8e8f0",padding:"8px 10px 8px 32px",fontSize:13,outline:"none"}}
+                    />
+                  </div>
+
+                  {/* 카테고리 칩 */}
+                  {allCategories.length > 0 && (
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
+                      <button
+                        onClick={() => setDbCategory("")}
+                        style={{padding:"4px 10px",borderRadius:20,fontSize:11,fontWeight:600,border:"none",cursor:"pointer",
+                          background: !dbCategory ? "#f5a623" : "#2a2a3e",
+                          color: !dbCategory ? "#000" : "#aaa"}}>
+                        {t("전체","Alle")}
+                      </button>
+                      {allCategories.map(cat => (
+                        <button key={cat}
+                          onClick={() => setDbCategory(dbCategory === cat ? "" : cat)}
+                          style={{padding:"4px 10px",borderRadius:20,fontSize:11,fontWeight:600,border:"none",cursor:"pointer",
+                            background: dbCategory === cat ? "#f5a623" : "#2a2a3e",
+                            color: dbCategory === cat ? "#000" : "#aaa"}}>
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* 결과 목록 */}
+                  {filtered.length === 0 && (
+                    <div style={{color:"#555",textAlign:"center",padding:20,fontSize:13}}>{t("검색 결과 없음","Keine Ergebnisse")}</div>
+                  )}
+                  {filtered.map(({ page, title, icon, categories }) => (
+                    <div key={page.id}
+                      onClick={() => loadManualPage(page.id, title, {id: currentManualId, title: manualTitle, viewType: "database"})}
+                      style={{...styles.historyCard, display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8, cursor:"pointer"}}>
+                      <div>
+                        <div style={{fontWeight:600,fontSize:13,color:"#e8e8f0"}}>{icon} {title}</div>
+                        {categories.length > 0 && (
+                          <div style={{display:"flex",gap:4,marginTop:3,flexWrap:"wrap"}}>
+                            {categories.map(c => (
+                              <span key={c} style={{fontSize:10,background:"#2a2a3e",color:"#888",borderRadius:4,padding:"1px 6px"}}>{c}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{color:"#555",fontSize:18}}>›</div>
+                    </div>
+                  ))}
                 </div>
               );
-            })}
+            })()}
             {!manualLoading && manualViewType === "blocks" && manualBlocks.map(block => renderNotionBlock(block))}
           </div>
         )}
