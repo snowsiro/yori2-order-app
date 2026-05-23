@@ -532,35 +532,35 @@ export default function App() {
   }
 
   async function loadManualPage(pageId, title, pushStack) {
-    setManualLoading(true);
     setManualError("");
+
+    // 캐시가 있으면 즉시 표시
+    const cacheKey = "yori2_page_" + pageId;
     try {
-      const topBlocks = await fetchBlocks(pageId);
-      const blocks = topBlocks.filter(b => !MANUAL_HIDDEN_IDS.includes(b.id));
-
-      // fetch children of has_children blocks in parallel
-      const withChildren = blocks.filter(b => b.has_children);
-      if (withChildren.length > 0) {
-        const childArrays = await Promise.all(
-          withChildren.map(b => fetchBlocks(b.id).catch(() => []))
-        );
-        withChildren.forEach((b, i) => { b._children = childArrays[i]; });
-
-        // 2단계: column, toggle 등 컨테이너 안의 자식도 fetch
-        const level2 = withChildren.flatMap(b => b._children || []).filter(b => b.has_children);
-        if (level2.length > 0) {
-          const grandArrays = await Promise.all(
-            level2.map(b => fetchBlocks(b.id).catch(() => []))
-          );
-          level2.forEach((b, i) => { b._children = grandArrays[i]; });
-        }
+      const cached = JSON.parse(localStorage.getItem(cacheKey) || "null");
+      if (cached) {
+        if (pushStack) setManualStack(prev => [...prev, pushStack]);
+        setManualBlocks(cached);
+        setManualTitle(title);
+        setManualViewType("blocks");
+        setCurrentManualId(pageId);
+        setManualLoading(false);
+        // 백그라운드에서 최신 데이터 fetch 후 업데이트
+        fetchAndUpdatePage(pageId, title, cacheKey);
+        return;
       }
+    } catch (_) {}
 
+    // 캐시 없으면 정상 로딩
+    setManualLoading(true);
+    try {
+      const blocks = await fetchPageBlocks(pageId);
       if (pushStack) setManualStack(prev => [...prev, pushStack]);
       setManualBlocks(blocks);
       setManualTitle(title);
       setManualViewType("blocks");
       setCurrentManualId(pageId);
+      try { localStorage.setItem(cacheKey, JSON.stringify(blocks)); } catch (_) {}
       if (!pushStack) {
         try { localStorage.setItem("yori2_manual_cache", JSON.stringify(blocks)); } catch (_) {}
       }
@@ -570,26 +570,84 @@ export default function App() {
     setManualLoading(false);
   }
 
-  async function loadDatabase(dbId, title, pushStack) {
-    setManualLoading(true);
-    setManualError("");
+  async function fetchPageBlocks(pageId) {
+    const topBlocks = await fetchBlocks(pageId);
+    const blocks = topBlocks.filter(b => !MANUAL_HIDDEN_IDS.includes(b.id));
+    const withChildren = blocks.filter(b => b.has_children);
+    if (withChildren.length > 0) {
+      const childArrays = await Promise.all(
+        withChildren.map(b => fetchBlocks(b.id).catch(() => []))
+      );
+      withChildren.forEach((b, i) => { b._children = childArrays[i]; });
+      const level2 = withChildren.flatMap(b => (b._children || []).filter(c => c.has_children));
+      if (level2.length > 0) {
+        const grandArrays = await Promise.all(
+          level2.map(b => fetchBlocks(b.id).catch(() => []))
+        );
+        level2.forEach((b, i) => { b._children = grandArrays[i]; });
+      }
+    }
+    return blocks;
+  }
+
+  async function fetchAndUpdatePage(pageId, title, cacheKey) {
     try {
-      const res = await fetch(NOTION_PROXY + "?page_id=" + dbId + "&type=database", {
-        headers: { "Authorization": "Bearer " + SUPABASE_ANON_KEY, "apikey": SUPABASE_ANON_KEY },
-        cache: "no-store",
-      });
-      const text = await res.text();
-      let data;
-      try { data = JSON.parse(text); } catch { throw new Error("응답 파싱 실패: " + text.slice(0, 100)); }
-      if (!res.ok) throw new Error("HTTP " + res.status + ": " + (data.message || data.error || text.slice(0, 100)));
-      if (data.object === "error") throw new Error("Notion: " + data.message);
+      const blocks = await fetchPageBlocks(pageId);
+      setManualBlocks(blocks);
+      try { localStorage.setItem(cacheKey, JSON.stringify(blocks)); } catch (_) {}
+    } catch (_) {}
+  }
+
+  async function fetchDatabasePages(dbId) {
+    const res = await fetch(NOTION_PROXY + "?page_id=" + dbId + "&type=database", {
+      headers: { "Authorization": "Bearer " + SUPABASE_ANON_KEY, "apikey": SUPABASE_ANON_KEY },
+      cache: "no-store",
+    });
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch { throw new Error("응답 파싱 실패: " + text.slice(0, 100)); }
+    if (!res.ok) throw new Error("HTTP " + res.status + ": " + (data.message || data.error || text.slice(0, 100)));
+    if (data.object === "error") throw new Error("Notion: " + data.message);
+    return data.results || [];
+  }
+
+  async function loadDatabase(dbId, title, pushStack) {
+    setManualError("");
+    const cacheKey = "yori2_db_" + dbId;
+
+    // 캐시 있으면 즉시 표시
+    try {
+      const cached = JSON.parse(localStorage.getItem(cacheKey) || "null");
+      if (cached) {
+        if (pushStack) setManualStack(prev => [...prev, pushStack]);
+        setManualBlocks(cached);
+        setManualTitle(title);
+        setManualViewType("database");
+        setCurrentManualId(dbId);
+        setDbSearch("");
+        setDbCategory("");
+        setManualLoading(false);
+        // 백그라운드 최신화
+        fetchDatabasePages(dbId).then(pages => {
+          setManualBlocks(pages);
+          try { localStorage.setItem(cacheKey, JSON.stringify(pages)); } catch (_) {}
+        }).catch(() => {});
+        return;
+      }
+    } catch (_) {}
+
+    // 캐시 없으면 정상 로딩
+    setManualLoading(true);
+    try {
+      const pages = await fetchDatabasePages(dbId);
       if (pushStack) setManualStack(prev => [...prev, pushStack]);
-      setManualBlocks(data.results || []);
+      setManualBlocks(pages);
       setManualTitle(title);
       setManualViewType("database");
       setCurrentManualId(dbId);
       setDbSearch("");
       setDbCategory("");
+      try { localStorage.setItem(cacheKey, JSON.stringify(pages)); } catch (_) {}
     } catch (e) {
       setManualError(e.message);
     }
