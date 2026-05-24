@@ -337,6 +337,8 @@ function buildOrderMessage(supplier, quantities, lang, staffName, note) {
 // ── 컴포넌트 ────────────────────────────────────────────────────────────────
 export default function App() {
   const [lang, setLang] = useState("de");
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [showIosInstall, setShowIosInstall] = useState(false);
   const [currentUser, setCurrentUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem("yori2_user") || "null"); } catch { return null; }
   });
@@ -411,6 +413,12 @@ export default function App() {
       return idx >= 0 ? idx : 0;
     } catch { return 0; }
   });
+
+  useEffect(() => {
+    const handler = (e) => { e.preventDefault(); setInstallPrompt(e); };
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
 
   useEffect(() => {
     const mapRow = row => ({
@@ -1232,6 +1240,54 @@ export default function App() {
             <div style={{fontSize:12,color:"#888",marginBottom:20}}>
               {new Date().toLocaleDateString(lang==="ko"?"ko-KR":"de-DE",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}
             </div>
+
+            {/* 앱 설치 버튼 */}
+            {(installPrompt || (/iphone|ipad|ipod/i.test(navigator.userAgent) && !window.navigator.standalone)) && (
+              <div style={{background:"#1a1a2e",border:"1px solid #863bff44",borderRadius:14,padding:"14px 18px",marginBottom:16,display:"flex",alignItems:"center",gap:14}}>
+                <div style={{fontSize:28}}>📲</div>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:700,fontSize:14,color:"#e8e8f0"}}>{t("앱으로 설치","App installieren")}</div>
+                  <div style={{fontSize:11,color:"#888",marginTop:2}}>{t("홈 화면에 추가하면 더 빠르게 실행돼요","Zum Startbildschirm hinzufügen")}</div>
+                </div>
+                <button
+                  onClick={async () => {
+                    if (installPrompt) {
+                      await installPrompt.prompt();
+                      const { outcome } = await installPrompt.userChoice;
+                      if (outcome === "accepted") setInstallPrompt(null);
+                    } else {
+                      setShowIosInstall(true);
+                    }
+                  }}
+                  style={{background:"#863bff",color:"#fff",border:"none",borderRadius:8,padding:"7px 14px",fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>
+                  {t("설치","Installieren")}
+                </button>
+              </div>
+            )}
+
+            {/* iOS 설치 안내 모달 */}
+            {showIosInstall && (
+              <div style={{position:"fixed",inset:0,background:"#000a",zIndex:999,display:"flex",alignItems:"flex-end"}} onClick={()=>setShowIosInstall(false)}>
+                <div style={{background:"#1e1e2e",borderRadius:"20px 20px 0 0",padding:28,width:"100%",boxSizing:"border-box"}} onClick={e=>e.stopPropagation()}>
+                  <div style={{fontWeight:700,fontSize:16,color:"#e8e8f0",marginBottom:16,textAlign:"center"}}>📲 {t("홈 화면에 추가","Zum Startbildschirm")}</div>
+                  <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                    {[
+                      {step:"1", text: t("하단 공유 버튼 탭 (□↑)","Unten auf Teilen tippen (□↑)")},
+                      {step:"2", text: t("'홈 화면에 추가' 선택","'Zum Home-Bildschirm' wählen")},
+                      {step:"3", text: t("'추가' 버튼 탭","'Hinzufügen' tippen")},
+                    ].map(({step, text}) => (
+                      <div key={step} style={{display:"flex",alignItems:"center",gap:14}}>
+                        <div style={{width:28,height:28,borderRadius:"50%",background:"#863bff",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:13,flexShrink:0}}>{step}</div>
+                        <div style={{fontSize:14,color:"#ccc"}}>{text}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={()=>setShowIosInstall(false)} style={{marginTop:24,width:"100%",background:"#2a2a3e",color:"#aaa",border:"none",borderRadius:10,padding:"12px",fontSize:14,cursor:"pointer"}}>
+                    {t("닫기","Schließen")}
+                  </button>
+                </div>
+              </div>
+            )}
             {[
               { icon:"📢", label:t("공지사항","Ankündigungen"), sub:t("오너 공지 확인","Ankündigungen lesen"), badge: unreadAnnounce, action:()=>{ setPage("announce"); markAnnounceRead(); } },
               { icon:"📝", label:t("특이사항","Tagesnotizen"), sub:t("오늘의 특이사항 기록","Notizen des Tages"), badge: unreadNotes, action:()=>{ setPage("notes"); markNotesRead(); } },

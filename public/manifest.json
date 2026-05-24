@@ -1,0 +1,25 @@
+{
+  "name": "Yori2 Staff App",
+  "short_name": "Yori2",
+  "description": "Yori2 Restaurant Staff App",
+  "start_url": "/yori2-order-app/",
+  "scope": "/yori2-order-app/",
+  "display": "standalone",
+  "background_color": "#0f0f1a",
+  "theme_color": "#0f0f1a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/yori2-order-app/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/yori2-order-app/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
