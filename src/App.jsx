@@ -505,7 +505,7 @@ export default function App() {
 
   async function loadStaff() {
     setStaffLoading(true);
-    const { data, error } = await supabase.from("users").select("id, email, name, role").order("role", { ascending: false });
+    const { data, error } = await supabase.from("users_public").select("id, email, name, role").order("role", { ascending: false });
     if (!error && data) setStaffUsers(data);
     setStaffLoading(false);
   }
@@ -535,6 +535,7 @@ export default function App() {
       headers: { "Authorization": "Bearer " + SUPABASE_ANON_KEY, "apikey": SUPABASE_ANON_KEY },
       cache: "no-store",
     });
+    if (!res.ok) throw new Error("HTTP " + res.status);
     const data = await res.json();
     return data.results || [];
   }
@@ -964,29 +965,49 @@ export default function App() {
   }
 
   async function handlePostAnnounce() {
-    if (!newAnnounceText.trim()) return;
+    if (!currentUser || !newAnnounceText.trim()) return;
     const content = newAnnounceText.trim();
     setNewAnnounceText("");
-    const { data } = await supabase.from("announcements")
+    const { data, error } = await supabase.from("announcements")
       .insert({ content, author_name: currentUser.name }).select().single();
-    if (data) setAnnouncements(prev => [data, ...prev]);
+    if (error || !data) {
+      setNewAnnounceText(content); // 실패 시 입력 복원
+      alert(t("공지 등록에 실패했습니다. 다시 시도해주세요.", "Ankündigung fehlgeschlagen. Bitte erneut versuchen."));
+      return;
+    }
+    setAnnouncements(prev => [data, ...prev]);
   }
   async function handleDeleteAnnounce(id) {
+    const backup = announcements;
     setAnnouncements(prev => prev.filter(a => a.id !== id));
-    await supabase.from("announcements").delete().eq("id", id);
+    const { error } = await supabase.from("announcements").delete().eq("id", id);
+    if (error) {
+      setAnnouncements(backup); // 실패 시 롤백
+      alert(t("삭제에 실패했습니다.", "Löschen fehlgeschlagen."));
+    }
   }
   async function handlePostNote() {
-    if (!newNoteText.trim()) return;
+    if (!currentUser || !newNoteText.trim()) return;
     const content = newNoteText.trim();
     const today = new Date().toISOString().slice(0, 10);
     setNewNoteText("");
-    const { data } = await supabase.from("daily_notes")
+    const { data, error } = await supabase.from("daily_notes")
       .insert({ content, work_date: today, author_name: currentUser.name }).select().single();
-    if (data) setDailyNotes(prev => [data, ...prev]);
+    if (error || !data) {
+      setNewNoteText(content); // 실패 시 입력 복원
+      alert(t("특이사항 등록에 실패했습니다. 다시 시도해주세요.", "Notiz fehlgeschlagen. Bitte erneut versuchen."));
+      return;
+    }
+    setDailyNotes(prev => [data, ...prev]);
   }
   async function handleDeleteNote(id) {
+    const backup = dailyNotes;
     setDailyNotes(prev => prev.filter(n => n.id !== id));
-    await supabase.from("daily_notes").delete().eq("id", id);
+    const { error } = await supabase.from("daily_notes").delete().eq("id", id);
+    if (error) {
+      setDailyNotes(backup); // 실패 시 롤백
+      alert(t("삭제에 실패했습니다.", "Löschen fehlgeschlagen."));
+    }
   }
   function markAnnounceRead() {
     const now = new Date().toISOString();
@@ -1002,9 +1023,10 @@ export default function App() {
   async function handleLogin() {
     setLoginLoading(true);
     setLoginError("");
+    // 공개 view 조회 (password_hash 노출 없음)
     const { data, error } = await supabase
-      .from("users")
-      .select("email, name, role, password_hash")
+      .from("users_public")
+      .select("email, name, role")
       .eq("email", loginEmail.trim().toLowerCase())
       .single();
     setLoginLoading(false);
@@ -1028,20 +1050,23 @@ export default function App() {
   }
 
   async function handlePasswordSubmit() {
-    const encoder = new TextEncoder();
-    const buffer = await crypto.subtle.digest("SHA-256", encoder.encode(pwInput));
-    const hashHex = Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, "0")).join("");
-    if (hashHex === pendingUser.password_hash) {
-      const userToStore = { email: pendingUser.email, name: pendingUser.name, role: pendingUser.role };
-      setCurrentUser(userToStore);
-      localStorage.setItem("yori2_user", JSON.stringify(userToStore));
-      setPage("home");
-      loadManualPage(MANUAL_ROOT_ID, "메뉴얼", null);
-      loadSchedule(new Date().getMonth());
-      setPwPopup(false); setPendingUser(null); setPwInput(""); setPwError("");
-    } else {
+    // 비밀번호 검증은 서버(RPC)에서 처리 — 해시는 클라이언트로 전송되지 않음
+    const { data, error } = await supabase.rpc("verify_login", {
+      p_email: pendingUser.email,
+      p_password: pwInput,
+    });
+    if (error || !data || data.length === 0) {
       setPwError(t("비밀번호가 틀렸습니다.", "Falsches Passwort."));
+      return;
     }
+    const u = data[0];
+    const userToStore = { email: u.email, name: u.name, role: u.role };
+    setCurrentUser(userToStore);
+    localStorage.setItem("yori2_user", JSON.stringify(userToStore));
+    setPage("home");
+    loadManualPage(MANUAL_ROOT_ID, "메뉴얼", null);
+    loadSchedule(new Date().getMonth());
+    setPwPopup(false); setPendingUser(null); setPwInput(""); setPwError("");
   }
 
   function handleLogout() {
@@ -1056,7 +1081,7 @@ export default function App() {
   }
 
   function handleSubmitOrder() {
-    if (!selectedSupplier) return;
+    if (!currentUser || !selectedSupplier) return;
     const msg = buildOrderMessage(selectedSupplier, quantities, lang, currentUser.name, note);
     if (!msg) return;
     const order = {
@@ -1085,7 +1110,13 @@ export default function App() {
       note: order.note,
       message: order.message,
       status: order.status,
-    }).then(({ error }) => { if (error) console.error("Supabase insert error:", error); });
+    }).then(({ error }) => {
+      if (error) {
+        console.error("Supabase insert error:", error);
+        alert(t("발주 메시지는 전송되었으나 내역 저장에 실패했습니다. 네트워크를 확인해주세요.",
+                "Bestellung gesendet, aber Speichern fehlgeschlagen. Bitte Netzwerk prüfen."));
+      }
+    });
     setSubmitted(true);
     const encodedMsg = encodeURIComponent(`[Yori2 발주 요청]\n${msg}`);
     window.open(`https://wa.me/${OWNER_WHATSAPP.replace(/[^0-9]/g,"")}?text=${encodedMsg}`, "_blank");
