@@ -505,7 +505,7 @@ export default function App() {
 
   async function loadStaff() {
     setStaffLoading(true);
-    const { data, error } = await supabase.from("users").select("id, email, name, role").order("role", { ascending: false });
+    const { data, error } = await supabase.from("users_public").select("id, email, name, role").order("role", { ascending: false });
     if (!error && data) setStaffUsers(data);
     setStaffLoading(false);
   }
@@ -1024,8 +1024,8 @@ export default function App() {
     setLoginLoading(true);
     setLoginError("");
     const { data, error } = await supabase
-      .from("users")
-      .select("email, name, role, password_hash")
+      .from("users_public")
+      .select("email, name, role")
       .eq("email", loginEmail.trim().toLowerCase())
       .single();
     setLoginLoading(false);
@@ -1049,13 +1049,16 @@ export default function App() {
   }
 
   async function handlePasswordSubmit() {
-    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pwInput));
-    const hash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
-    if (pendingUser.password_hash && hash !== pendingUser.password_hash) {
+    const { data, error } = await supabase.rpc("verify_login", {
+      p_email: pendingUser.email,
+      p_password: pwInput,
+    });
+    if (error || !data || data.length === 0) {
       setPwError(t("비밀번호가 틀렸습니다.", "Falsches Passwort."));
       return;
     }
-    const userToStore = { email: pendingUser.email, name: pendingUser.name, role: pendingUser.role };
+    const u = data[0];
+    const userToStore = { email: u.email, name: u.name, role: u.role };
     setCurrentUser(userToStore);
     localStorage.setItem("yori2_user", JSON.stringify(userToStore));
     setPage("home");
