@@ -1,5 +1,7 @@
--- Yori2 users 테이블 생성 및 초기 데이터 삽입
+-- Yori2 users 테이블 생성
 -- Supabase 대시보드 → SQL Editor에서 실행하세요
+-- 주의: 실제 이메일/비밀번호는 공개 저장소에 커밋하지 마세요.
+--       직원 추가는 앱의 설정 → 직원 화면에서 하면 됩니다.
 
 CREATE TABLE IF NOT EXISTS users (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -11,15 +13,10 @@ CREATE TABLE IF NOT EXISTS users (
 
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 
--- 로그인 확인용 읽기 허용 (anon key로 이메일 조회 가능)
-CREATE POLICY "users_read_anon" ON users FOR SELECT USING (true);
+-- 사장님(owner) 계정 생성 예시 — 값을 바꿔서 SQL Editor에서 직접 실행하세요:
+-- INSERT INTO users (email, name, role, password_hash) VALUES
+--   ('owner@example.com', 'Owner Name', 'owner', encode(sha256('YOUR_PASSWORD'::bytea), 'hex'));
 
--- 유저 데이터 삽입 (비밀번호는 SHA-256 해시로 저장)
-INSERT INTO users (email, name, role, password_hash) VALUES
-  ('snowsiro@gmail.com',       'Seungjae Kim', 'owner', encode(sha256('yorikochen2'::bytea), 'hex')),
-  ('yori2wien@gmail.com',      'Yori2',         'staff', NULL),
-  ('jooseopark1070@gmail.com', 'Jooseo Park',   'staff', NULL),
-  ('miggiebeee@gmail.com',     'Miguel',         'staff', NULL),
-  ('dahyung43@gmail.com',      'Dahyung Lee',   'staff', NULL),
-  ('tmf2157@gmail.com',        'Siwoo Jang',    'staff', NULL)
-ON CONFLICT (email) DO NOTHING;
+-- 직원(staff) 계정 생성 예시 (비밀번호 없음):
+-- INSERT INTO users (email, name, role) VALUES
+--   ('staff@example.com', 'Staff Name', 'staff');
