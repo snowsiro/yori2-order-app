@@ -934,7 +934,9 @@ export default function App() {
   }
 
   async function loadSchedule(monthIdx) {
-    setScheduleLoading(true);
+    // 같은 달 캐시가 이미 보이는 중이면 로딩 화면 없이 백그라운드로 갱신
+    const hasCache = scheduleData && scheduleSelectedMonth === monthIdx;
+    if (!hasCache) setScheduleLoading(true);
     setScheduleError("");
     setScheduleSelectedMonth(monthIdx);
     const sheet = MONTH_DE[monthIdx];
@@ -1241,7 +1243,7 @@ export default function App() {
         <button style={page==="manual"?styles.navActive:styles.navBtn} onClick={()=>{setPage("manual"); if(manualBlocks.length===0) loadManualPage(MANUAL_ROOT_ID,"메뉴얼",null);}}>
           📖 {t("메뉴얼","Handbuch")}
         </button>
-        <button style={page==="schedule"?styles.navActive:styles.navBtn} onClick={()=>{setPage("schedule"); if(!scheduleData) loadSchedule(new Date().getMonth());}}>
+        <button style={page==="schedule"?styles.navActive:styles.navBtn} onClick={()=>{setPage("schedule"); loadSchedule(scheduleSelectedMonth);}}>
           📅 {t("근무일정","Dienstplan")}
         </button>
         <button style={page==="order"?styles.navActive:styles.navBtn} onClick={()=>{setPage("order");handleNewOrder();}}>
@@ -1321,7 +1323,7 @@ export default function App() {
               { icon:"📢", label:t("공지사항","Ankündigungen"), sub:t("오너 공지 확인","Ankündigungen lesen"), badge: unreadAnnounce, action:()=>{ setPage("announce"); markAnnounceRead(); } },
               { icon:"📝", label:t("특이사항","Tagesnotizen"), sub:t("오늘의 특이사항 기록","Notizen des Tages"), badge: unreadNotes, action:()=>{ setPage("notes"); markNotesRead(); } },
               { icon:"📖", label:t("식당 메뉴얼","Handbuch"), sub:t("레시피 및 운영 메뉴얼","Rezepte & Handbuch"), action:()=>{ setPage("manual"); if(manualBlocks.length===0) loadManualPage(MANUAL_ROOT_ID,"메뉴얼",null); } },
-              { icon:"📅", label:t("근무일정","Dienstplan"), sub:t("이번 주 근무표 확인","Dienstplan ansehen"), action:()=>{ setPage("schedule"); if(!scheduleData) loadSchedule(new Date().getMonth()); } },
+              { icon:"📅", label:t("근무일정","Dienstplan"), sub:t("이번 주 근무표 확인","Dienstplan ansehen"), action:()=>{ setPage("schedule"); loadSchedule(scheduleSelectedMonth); } },
               { icon:"📦", label:t("식자재 발주","Bestellung"), sub:t("공급업체에 발주서 작성","Bestellung aufgeben"), action:()=>{ setPage("order"); handleNewOrder(); } },
             ].map(item => (
               <div
