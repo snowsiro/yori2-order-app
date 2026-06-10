@@ -924,6 +924,9 @@ export default function App() {
     const dayRowIdx = rows.findIndex(r => r.v.filter(c => c === "MO").length >= 2);
     if (dayRowIdx < 0) return null;
     const dateRow = rows[dayRowIdx + 1];
+    // 요일/날짜 행 위의 행들 = 특별 일정 메모 (예: PM = Personal Meeting)
+    const memoRows = rows.slice(0, dayRowIdx);
+    const isNoiseCell = (s) => /^(19|20)\d\d$/.test(s) || MONTH_DE.includes(s);
 
     const staffRows = [];
     for (let i = dayRowIdx + 2; i < rows.length; i++) {
@@ -950,7 +953,11 @@ export default function App() {
         const dateColor = dateRow.f[startCol + d] || "#000000";
         const isWeekend = d >= 5; // SA=5, SO=6
         const isHoliday = !isWeekend && (isRedColor(dayColor) || isRedColor(dateColor));
-        dates.push({ day: dayNum, month: curMonth, isHoliday });
+        const memo = memoRows
+          .map(r => String(r.v[startCol + d] ?? "").trim())
+          .filter(s => s && !isNoiseCell(s))
+          .join(" / ");
+        dates.push({ day: dayNum, month: curMonth, isHoliday, memo });
       }
       if (dates.every(d => !d.day)) break;
 
@@ -1201,15 +1208,18 @@ export default function App() {
   const unreadNotes = dailyNotes.filter(n =>
     n.author_name !== currentUser?.name && (!lastReadNotes || n.created_at > lastReadNotes)
   ).length;
-  const todayShifts = (() => {
+  const todayInfo = (() => {
     if (!scheduleData) return null;
     const today = new Date();
     for (const week of scheduleData.weeks) {
       const di = week.dates.findIndex(d => d.day === today.getDate() && d.month === today.getMonth() + 1);
       if (di >= 0) {
-        return scheduleData.staffNames
-          .map(name => ({ name, shift: (week.staff[name]?.[di] || "").trim() }))
-          .filter(s => s.shift);
+        return {
+          memo: week.dates[di].memo || "",
+          shifts: scheduleData.staffNames
+            .map(name => ({ name, shift: (week.staff[name]?.[di] || "").trim() }))
+            .filter(s => s.shift),
+        };
       }
     }
     return null;
@@ -1380,13 +1390,16 @@ export default function App() {
                 </div>
               </div>
             )}
-            {todayShifts && todayShifts.length > 0 && (
+            {todayInfo && (todayInfo.shifts.length > 0 || todayInfo.memo) && (
               <div
                 onClick={()=>{ setPage("schedule"); loadSchedule(scheduleSelectedMonth); }}
                 style={{background:"#1e1e2e",border:"1px solid #2a2a3e",borderRadius:14,padding:"14px 16px",marginBottom:12,cursor:"pointer"}}>
                 <div style={{fontWeight:700,fontSize:13,color:"#c8c8d8",marginBottom:10}}>👥 {t("오늘 근무","Heute im Dienst")}</div>
+                {todayInfo.memo && (
+                  <div style={{fontSize:12,color:"#f5d020",marginBottom:8}}>📌 {todayInfo.memo}</div>
+                )}
                 <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-                  {todayShifts.map(({name, shift}) => {
+                  {todayInfo.shifts.map(({name, shift}) => {
                     const isVacation = /^U\d*/i.test(shift);
                     const c = isVacation ? "#f5d020" : shift==="O" ? "#7ab8f5" : shift==="N" ? "#c89eff" : shift==="F" ? "#7fd88a" : "#a0d0c0";
                     return (
@@ -1658,10 +1671,22 @@ export default function App() {
                           <div style={{fontSize:12, fontWeight:700, color: isHoliday ? "#ff6b6b" : isToday ? "#f5a623" : "#ccc"}}>{week.dates[i].day}</div>
                           {isToday && <div style={{fontSize:9,color:"#f5a623"}}>오늘</div>}
                           {isHoliday && <div style={{fontSize:9,color:"#ff6b6b"}}>공휴일</div>}
+                          {week.dates[i].memo && <div style={{fontSize:9}}>📌</div>}
                         </div>
                       );
                     })}
                   </div>
+
+                  {/* 특별 일정 메모 (날짜 헤더 위에 적힌 내용) */}
+                  {week.dates.some(d => d.memo) && (
+                    <div style={{background:"#1e1c10",border:"1px solid #3a3416",borderRadius:8,padding:"7px 10px",margin:"2px 0 8px"}}>
+                      {week.dates.map((d, i) => d.memo ? (
+                        <div key={i} style={{fontSize:11,color:"#f5d020",padding:"1px 0"}}>
+                          📌 {["MO","DI","MI","DO","FR","SA","SO"][i]} {d.day}. — {d.memo}
+                        </div>
+                      ) : null)}
+                    </div>
+                  )}
 
                   {/* 직원별 행 */}
                   {scheduleData.staffNames.map(name => {
