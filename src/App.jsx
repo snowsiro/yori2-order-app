@@ -374,6 +374,8 @@ export default function App() {
   const [newSupplierForm, setNewSupplierForm] = useState({name_ko:"",name_de:"",channel:"whatsapp",icon:"📦",color:"#888888"});
   const [newItemForm, setNewItemForm] = useState({name_ko:"",name_de:"",unit:""});
   const [settingsView, setSettingsView] = useState("list");
+  const [supplierNoteDraft, setSupplierNoteDraft] = useState(""); // 업체별 발주 안내 메모
+  const [noteSaved, setNoteSaved] = useState(false);
   // staff management
   const [staffUsers, setStaffUsers] = useState([]);
   const [staffLoading, setStaffLoading] = useState(false);
@@ -1137,6 +1139,12 @@ export default function App() {
 
   function handleSubmitOrder() {
     if (!currentUser || !selectedSupplier) return;
+    const todayStr = localDateStr(new Date());
+    const dup = orders.find(o => o.supplier === selectedSupplier.id && localDateStr(new Date(o.date)) === todayStr);
+    if (dup && !window.confirm(t(
+      `⚠️ 오늘 이미 ${dup.staffName}님이 이 업체에 발주했습니다.\n그래도 전송하시겠습니까?`,
+      `⚠️ ${dup.staffName} hat heute bereits bei diesem Lieferanten bestellt.\nTrotzdem senden?`
+    ))) return;
     const msg = buildOrderMessage(selectedSupplier, quantities, lang, currentUser.name, note);
     if (!msg) return;
     const order = {
@@ -1755,6 +1763,7 @@ export default function App() {
                         color: CHANNEL_LABEL[s.channel].textColor || "#fff"}}>
                         {CHANNEL_LABEL[s.channel][lang]}
                       </div>
+                      {s.name.note && <div style={{fontSize:10,color:"#f5d020",marginTop:5,lineHeight:1.3}}>📋 {s.name.note}</div>}
                     </button>
                   ))}
                 </div>
@@ -1767,6 +1776,11 @@ export default function App() {
                     {selectedSupplier.icon} {selectedSupplier.name[lang]}
                   </div>
                 </div>
+                {selectedSupplier.name.note && (
+                  <div style={{background:"#1e1c10",border:"1px solid #3a3416",borderRadius:8,padding:"7px 10px",marginBottom:12,fontSize:12,color:"#f5d020"}}>
+                    📋 {selectedSupplier.name.note}
+                  </div>
+                )}
                 <div style={styles.sectionTitle}>{t("수량 입력","Menge eingeben")}</div>
                 {totalItems === 0 && (() => {
                   const lastOrder = orders.find(o => o.supplier === selectedSupplier.id);
@@ -1939,7 +1953,7 @@ export default function App() {
                       </div>
                     </div>
                     <div style={{display:"flex",gap:6}}>
-                      <button style={styles.copyBtn} onClick={()=>{setEditingSupplier(s);setSettingsView("items");setNewItemForm({name_ko:"",name_de:"",unit:""});}}>
+                      <button style={styles.copyBtn} onClick={()=>{setEditingSupplier(s);setSettingsView("items");setNewItemForm({name_ko:"",name_de:"",unit:""});setSupplierNoteDraft(s.name.note||"");setNoteSaved(false);}}>
                         {t("품목 관리","Artikel")}
                       </button>
                       <button style={{...styles.copyBtn,background:"#2a1a1a",color:"#e87a7a"}} onClick={()=>{
@@ -1988,6 +2002,22 @@ export default function App() {
                 <button style={styles.backBtn} onClick={()=>setSettingsView("list")}>← {t("목록으로","Zurück")}</button>
                 <div style={{fontWeight:700,fontSize:15,color:editingSupplier.color,margin:"12px 0 8px"}}>
                   {editingSupplier.icon} {editingSupplier.name[lang]}
+                </div>
+                <div style={{...styles.historyCard,marginBottom:10}}>
+                  <div style={{fontWeight:600,fontSize:12,color:"#e8e8f0",marginBottom:6}}>📋 {t("발주 안내 (발주 화면에 표시)","Bestellhinweis (wird beim Bestellen angezeigt)")}</div>
+                  <input
+                    style={{...styles.input,marginBottom:6}}
+                    placeholder={t("예: 화·금 주문 → 익일 배송","z.B. Di & Fr bestellen → Lieferung am nächsten Tag")}
+                    value={supplierNoteDraft}
+                    onChange={e=>{setSupplierNoteDraft(e.target.value);setNoteSaved(false);}}
+                  />
+                  <button style={styles.copyBtn} onClick={()=>{
+                    const curSup = suppliers.find(s=>s.id===editingSupplier.id);
+                    const updatedSup = {...curSup, name:{...curSup.name, note: supplierNoteDraft.trim()}};
+                    setSuppliers(prev=>prev.map(s=>s.id===editingSupplier.id?updatedSup:s));
+                    syncSupplierToDb(updatedSup);
+                    setNoteSaved(true);
+                  }}>{noteSaved ? t("✅ 저장됨","✅ Gespeichert") : t("저장","Speichern")}</button>
                 </div>
                 {suppliers.find(s=>s.id===editingSupplier.id)?.items.map((item,idx) => (
                   <div key={item.id} style={{...styles.itemRow, marginBottom:6}}>
