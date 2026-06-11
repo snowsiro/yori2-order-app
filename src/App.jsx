@@ -1656,6 +1656,17 @@ export default function App() {
                     <button style={styles.backBtn} onClick={()=>setScheduleWeekIndex(i=>Math.min(scheduleData.weeks.length-1,i+1))} disabled={scheduleWeekIndex===scheduleData.weeks.length-1}>{t("다음","Nächs.")} ›</button>
                   </div>
 
+                  {/* 특별 일정 메모 (날짜 헤더 위에 적힌 내용) */}
+                  {week.dates.some(d => d.memo) && (
+                    <div style={{background:"#1e1c10",border:"1px solid #3a3416",borderRadius:8,padding:"7px 10px",marginBottom:8}}>
+                      {week.dates.map((d, i) => d.memo ? (
+                        <div key={i} style={{fontSize:11,color:"#f5d020",padding:"1px 0"}}>
+                          📌 {["MO","DI","MI","DO","FR","SA","SO"][i]} {d.day}. — {d.memo}
+                        </div>
+                      ) : null)}
+                    </div>
+                  )}
+
                   {/* 날짜 헤더 */}
                   <div style={{display:"grid", gridTemplateColumns:`80px repeat(7, 1fr)`, gap:2, marginBottom:4}}>
                     <div/>
@@ -1676,17 +1687,6 @@ export default function App() {
                       );
                     })}
                   </div>
-
-                  {/* 특별 일정 메모 (날짜 헤더 위에 적힌 내용) */}
-                  {week.dates.some(d => d.memo) && (
-                    <div style={{background:"#1e1c10",border:"1px solid #3a3416",borderRadius:8,padding:"7px 10px",margin:"2px 0 8px"}}>
-                      {week.dates.map((d, i) => d.memo ? (
-                        <div key={i} style={{fontSize:11,color:"#f5d020",padding:"1px 0"}}>
-                          📌 {["MO","DI","MI","DO","FR","SA","SO"][i]} {d.day}. — {d.memo}
-                        </div>
-                      ) : null)}
-                    </div>
-                  )}
 
                   {/* 직원별 행 */}
                   {scheduleData.staffNames.map(name => {
