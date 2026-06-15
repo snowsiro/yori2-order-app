@@ -499,9 +499,9 @@ export default function App() {
 
   useEffect(() => {
     supabase.from("announcements").select("*").order("created_at", {ascending: false})
-      .then(({ data }) => { if (data) setAnnouncements(data); });
+      .then(({ data, error }) => { if (error) console.error("Fetch announcements:", error); if (data) setAnnouncements(data); });
     supabase.from("daily_notes").select("*").order("created_at", {ascending: false})
-      .then(({ data }) => { if (data) setDailyNotes(data); });
+      .then(({ data, error }) => { if (error) console.error("Fetch daily_notes:", error); if (data) setDailyNotes(data); });
     const ch1 = supabase.channel("announce-rt")
       .on("postgres_changes", {event: "*", schema: "public", table: "announcements"}, payload => {
         if (payload.eventType === "INSERT") setAnnouncements(prev => prev.some(a => a.id === payload.new.id) ? prev : [payload.new, ...prev]);
@@ -711,6 +711,7 @@ export default function App() {
   }
 
   function manualGoBack() {
+    if (manualStack.length === 0) return;
     const prev = manualStack[manualStack.length - 1];
     setManualStack(manualStack.slice(0, -1));
     setManualBlocks([]);
@@ -817,7 +818,7 @@ export default function App() {
       case "child_page": if (MANUAL_HIDDEN_IDS.includes(block.id)) return null;
         return (
         <div key={block.id}
-          onClick={() => loadManualPage(block.id, block.child_page.title, {id: manualStack.length === 0 ? MANUAL_ROOT_ID : block.id, title: manualTitle})}
+          onClick={() => loadManualPage(block.id, block.child_page.title, {id: manualStack.length === 0 ? MANUAL_ROOT_ID : block.id, title: manualTitle, viewType: "blocks"})}
           style={{...styles.historyCard, display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8, cursor:"pointer"}}>
           <div style={{fontWeight:600,fontSize:13,color:"#e8e8f0"}}>📄 {block.child_page.title}</div>
           <div style={{color:"#555",fontSize:18}}>›</div>
@@ -1211,7 +1212,8 @@ export default function App() {
 
   function handleMarkDone(orderId) {
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: "sent" } : o));
-    supabase.from("orders").update({ status: "sent" }).eq("id", orderId);
+    supabase.from("orders").update({ status: "sent" }).eq("id", orderId)
+      .then(({ error }) => { if (error) console.error("Order update error:", error); });
   }
 
   function handleDeleteOrder(orderId) {
@@ -1916,7 +1918,7 @@ export default function App() {
                 <div key={order.id} style={{...styles.historyCard, borderLeft: `4px solid ${sup?.color||"#444"}`}}>
                   <div style={styles.historyTop}>
                     <div>
-                      <span style={styles.historySupplier}>{sup?.icon} {order.supplierName[lang]}</span>
+                      <span style={styles.historySupplier}>{sup?.icon} {typeof order.supplierName === "object" ? order.supplierName[lang] : order.supplierName}</span>
                       <span style={{...styles.statusBadge, background: order.status==="sent"?"#059669":"#d97706"}}>
                         {order.status==="sent" ? t("전송완료","Gesendet") : t("대기중","Ausstehend")}
                       </span>
@@ -2051,7 +2053,9 @@ export default function App() {
                         <input style={{...styles.input,marginBottom:6}} value={editingItem.unit} onChange={e=>setEditingItem(p=>({...p,unit:e.target.value}))} placeholder={t("단위","Einheit")} />
                         <div style={{display:"flex",gap:6}}>
                           <button style={{...styles.doneBtn,flex:1}} onClick={()=>{
-                            const updatedSup = {...suppliers.find(s=>s.id===editingSupplier.id)};
+                            const foundSup = suppliers.find(s=>s.id===editingSupplier.id);
+                            if (!foundSup) return;
+                            const updatedSup = {...foundSup};
                             updatedSup.items = updatedSup.items.map(it=>it.id===editingItem.id?editingItem:it);
                             setSuppliers(prev=>prev.map(s=>s.id===editingSupplier.id?updatedSup:s));
                             syncSupplierToDb(updatedSup);
@@ -2069,7 +2073,9 @@ export default function App() {
                         <div style={{display:"flex",gap:5}}>
                           <button style={styles.copyBtn} onClick={()=>setEditingItem({...item})}>{t("수정","Edit")}</button>
                           <button style={{...styles.copyBtn,background:"#2a1a1a",color:"#e87a7a"}} onClick={()=>{
-                            const updatedSup = {...suppliers.find(s=>s.id===editingSupplier.id)};
+                            const foundSup2 = suppliers.find(s=>s.id===editingSupplier.id);
+                            if (!foundSup2) return;
+                            const updatedSup = {...foundSup2};
                             updatedSup.items = updatedSup.items.filter(it=>it.id!==item.id);
                             setSuppliers(prev=>prev.map(s=>s.id===editingSupplier.id?updatedSup:s));
                             syncSupplierToDb(updatedSup);
@@ -2092,6 +2098,7 @@ export default function App() {
                       unit:newItemForm.unit||"Stk"
                     };
                     const curSup = suppliers.find(s=>s.id===editingSupplier.id);
+                    if (!curSup) return;
                     const updatedSup = {...curSup, items:[...curSup.items, newItem]};
                     setSuppliers(prev=>prev.map(s=>s.id===editingSupplier.id?updatedSup:s));
                     syncSupplierToDb(updatedSup);
