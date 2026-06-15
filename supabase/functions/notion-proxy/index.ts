@@ -30,12 +30,6 @@ Deno.serve(async (req) => {
 
     const isPage = type === "page";
     const isDatabase = type === "database";
-    const path = isPage
-      ? "/v1/pages/" + pageId
-      : isDatabase
-      ? "/v1/databases/" + pageId + "/query"
-      : "/v1/blocks/" + pageId + "/children?page_size=100";
-    const notionUrl = "https://" + NOTION_HOST + path;
 
     const fetchHeaders: Record<string, string> = {
       "Authorization": "Bearer " + NOTION_TOKEN,
@@ -43,24 +37,70 @@ Deno.serve(async (req) => {
     };
     if (isDatabase) fetchHeaders["Content-Type"] = "application/json";
 
-    const res = await fetch(notionUrl, {
-      method: isDatabase ? "POST" : "GET",
-      headers: fetchHeaders,
-      body: isDatabase ? JSON.stringify({ page_size: 100 }) : undefined,
-    });
-
-    const text = await res.text();
-    let data;
-    try { data = JSON.parse(text); }
-    catch (_) {
-      return new Response(
-        JSON.stringify({ error: "Notion non-JSON (" + res.status + "): " + text.slice(0, 200) }),
-        { status: 502, headers: { ...cors, "Content-Type": "application/json" } }
-      );
+    // 단일 페이지 객체는 페이지네이션 없음
+    if (isPage) {
+      const res = await fetch("https://" + NOTION_HOST + "/v1/pages/" + pageId, {
+        method: "GET",
+        headers: fetchHeaders,
+      });
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); }
+      catch (_) {
+        return new Response(
+          JSON.stringify({ error: "Notion non-JSON (" + res.status + "): " + text.slice(0, 200) }),
+          { status: 502, headers: { ...cors, "Content-Type": "application/json" } }
+        );
+      }
+      return new Response(JSON.stringify(data), {
+        status: res.status,
+        headers: { ...cors, "Content-Type": "application/json" },
+      });
     }
 
-    return new Response(JSON.stringify(data), {
-      status: res.status,
+    // 블록/데이터베이스는 has_more가 끝날 때까지 모든 페이지를 이어받음
+    const results: unknown[] = [];
+    let cursor: string | undefined = undefined;
+    let lastStatus = 200;
+    while (true) {
+      const url = isDatabase
+        ? "https://" + NOTION_HOST + "/v1/databases/" + pageId + "/query"
+        : "https://" + NOTION_HOST + "/v1/blocks/" + pageId + "/children?page_size=100" +
+          (cursor ? "&start_cursor=" + cursor : "");
+
+      const res = await fetch(url, {
+        method: isDatabase ? "POST" : "GET",
+        headers: fetchHeaders,
+        body: isDatabase
+          ? JSON.stringify({ page_size: 100, ...(cursor ? { start_cursor: cursor } : {}) })
+          : undefined,
+      });
+
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); }
+      catch (_) {
+        return new Response(
+          JSON.stringify({ error: "Notion non-JSON (" + res.status + "): " + text.slice(0, 200) }),
+          { status: 502, headers: { ...cors, "Content-Type": "application/json" } }
+        );
+      }
+
+      lastStatus = res.status;
+      // 에러 응답이면 그대로 반환
+      if (!res.ok || data.object === "error") {
+        return new Response(JSON.stringify(data), {
+          status: res.status, headers: { ...cors, "Content-Type": "application/json" },
+        });
+      }
+
+      if (Array.isArray(data.results)) results.push(...data.results);
+      if (data.has_more && data.next_cursor) cursor = data.next_cursor;
+      else break;
+    }
+
+    return new Response(JSON.stringify({ object: "list", results, has_more: false }), {
+      status: lastStatus,
       headers: { ...cors, "Content-Type": "application/json" },
     });
   } catch (e) {
