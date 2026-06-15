@@ -428,6 +428,11 @@ export default function App() {
     return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
 
+  // 새로고침 시에도 루트 메뉴얼을 최신화 (캐시 먼저 표시 후 백그라운드 갱신)
+  useEffect(() => {
+    if (currentUser) loadManualPage(MANUAL_ROOT_ID, "메뉴얼", null);
+  }, []);
+
   useEffect(() => {
     const mapRow = row => ({
       id: row.id,
@@ -637,6 +642,9 @@ export default function App() {
       const blocks = await fetchPageBlocks(pageId);
       setManualBlocks(blocks);
       try { localStorage.setItem(cacheKey, JSON.stringify(blocks)); } catch (_) {}
+      if (pageId === MANUAL_ROOT_ID) {
+        try { localStorage.setItem("yori2_manual_cache", JSON.stringify(blocks)); } catch (_) {}
+      }
     } catch (_) {}
   }
 
