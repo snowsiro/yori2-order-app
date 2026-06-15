@@ -11,6 +11,12 @@ import logoUrl from "./assets/yori-logo.jpg";
 // ── 데이터 ──────────────────────────────────────────────────────────────────
 const OWNER_WHATSAPP = "+4367763107304";
 
+// 레시피 기본 목록(필터 미선택 시)에서 카테고리가 표시되는 순서. 여기 순서만 바꾸면 정렬이 바뀜.
+const RECIPE_CATEGORY_ORDER = [
+  "Vorspeise", "Hauptgericht", "Suppe und Eintopf", "Reis und Nudeln", "Tteokbokki",
+  "Beilage", "Dessert", "Getraenke", "Sauce", "Brühe", "Teig",
+];
+
 
 const SUPPLIERS = [
   {
@@ -1573,6 +1579,15 @@ export default function App() {
                 const matchCat = !dbCategory || categories.includes(dbCategory);
                 return matchSearch && matchCat;
               });
+
+              // 필터 미선택 시 카테고리 순서대로 정렬 (각 레시피는 가장 앞선 카테고리 기준)
+              if (!dbCategory) {
+                const rank = ({ categories }) => {
+                  const idxs = categories.map(c => RECIPE_CATEGORY_ORDER.indexOf(c)).filter(i => i >= 0);
+                  return idxs.length ? Math.min(...idxs) : RECIPE_CATEGORY_ORDER.length;
+                };
+                filtered.sort((a, b) => rank(a) - rank(b));
+              }
 
               return (
                 <div>
