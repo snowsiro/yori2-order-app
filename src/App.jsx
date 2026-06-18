@@ -2160,7 +2160,7 @@ export default function App() {
 }
 
 const styles = {
-  app: { minHeight:"100vh", background:"#0f0f18", color:"#e8e8f0", fontFamily:"'Noto Sans KR','Noto Sans',sans-serif", overflowX:"hidden" },
+  app: { minHeight:"100vh", background:"#0f0f18", color:"#e8e8f0", fontFamily:"'Noto Sans KR','Noto Sans',sans-serif", overflowX:"hidden", width:"100%", maxWidth:600, margin:"0 auto" },
   loginWrap: { minHeight:"100vh", background:"#0f0f18", display:"flex", alignItems:"center", justifyContent:"center", padding:16 },
   loginCard: { background:"#1a1a2e", border:"1px solid #2a2a4a", borderRadius:20, padding:"36px 28px", width:"100%", maxWidth:360, textAlign:"center" },
   logo: { width:120, height:120, objectFit:"contain", borderRadius:12, display:"block", margin:"0 auto 12px auto" },
