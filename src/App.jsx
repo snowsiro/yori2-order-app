@@ -2090,6 +2090,7 @@ export default function App() {
                   />
                   <button style={styles.copyBtn} onClick={()=>{
                     const curSup = suppliers.find(s=>s.id===editingSupplier.id);
+                    if (!curSup) return;
                     const updatedSup = {...curSup, name:{...curSup.name, note: supplierNoteDraft.trim()}};
                     setSuppliers(prev=>prev.map(s=>s.id===editingSupplier.id?updatedSup:s));
                     syncSupplierToDb(updatedSup);
