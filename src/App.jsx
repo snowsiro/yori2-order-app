@@ -1359,19 +1359,25 @@ export default function App() {
     const now = new Date();
     const stamp = `${currentUser.name}  ${now.toLocaleDateString("de-DE")} ${now.toLocaleTimeString("de-DE", {hour:"2-digit",minute:"2-digit"})}`;
     const items = Array.from({length: 30}, (_, i) => (
-      <div key={i} style={{whiteSpace:"nowrap", padding:"6px 20px", fontSize:13, opacity:0.13, color:"#fff", transform:`rotate(-30deg)`, userSelect:"none"}}>
+      <div key={i} style={{whiteSpace:"nowrap", padding:"6px 20px", fontSize:13, opacity:0.06, color:"#fff", transform:`rotate(-30deg)`, userSelect:"none"}}>
         {stamp}
       </div>
     ));
     return (
-      <div style={{position:"fixed",inset:0,zIndex:8888,pointerEvents:"none",overflow:"hidden",display:"flex",flexWrap:"wrap",alignContent:"flex-start",gap:0}}>
+      <div style={{position:"fixed",inset:0,zIndex:8888,pointerEvents:"none",overflow:"hidden",display:"flex",flexWrap:"wrap",alignContent:"flex-start",gap:0,userSelect:"none",WebkitUserSelect:"none"}}>
         {items}
       </div>
     );
   })() : null;
 
+  // 직원 계정: 텍스트 선택 방지
+  const noSelectStyle = currentUser?.role !== "owner"
+    ? `* { -webkit-user-select: none !important; user-select: none !important; }`
+    : "";
+
   return (
     <div style={styles.app}>
+      {noSelectStyle && <style>{noSelectStyle}</style>}
       {watermark}
       {updateBanner}
       <header style={styles.header}>
