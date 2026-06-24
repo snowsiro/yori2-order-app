@@ -515,6 +515,10 @@ export default function App() {
     return () => { supabase.removeChannel(ch1); supabase.removeChannel(ch2); };
   }, []); // announce & notes
 
+  useEffect(() => {
+    if (currentUser) loadManualPage(MANUAL_ROOT_ID, "메뉴얼", null);
+  }, [currentUser?.email]); // refresh manual root when user changes
+
   function syncSupplierToDb(supplier) {
     supabase.from("suppliers").upsert({ id: supplier.id, name: supplier.name, channel: supplier.channel, icon: supplier.icon, color: supplier.color, items: supplier.items })
       .then(({ error }) => { if (error) console.error("Supabase supplier sync error:", error); });
@@ -722,16 +726,6 @@ export default function App() {
     }
   }
 
-  function extractNotionId(url) {
-    try {
-      const u = new URL(url);
-      if (!u.hostname.includes("notion")) return null;
-      const seg = u.pathname.split("/").pop() || "";
-      const m = seg.match(/([0-9a-f]{32})$/i) || seg.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i);
-      return m ? m[1].replace(/-/g, "") : null;
-    } catch { return null; }
-  }
-
   function renderNotionBlock(block) {
     const rt = (richText) => richText?.map((r, i) => {
       let style = {};
@@ -818,7 +812,7 @@ export default function App() {
       case "child_page": if (MANUAL_HIDDEN_IDS.includes(block.id)) return null;
         return (
         <div key={block.id}
-          onClick={() => loadManualPage(block.id, block.child_page.title, {id: manualStack.length === 0 ? MANUAL_ROOT_ID : block.id, title: manualTitle, viewType: "blocks"})}
+          onClick={() => loadManualPage(block.id, block.child_page.title, {id: currentManualId || MANUAL_ROOT_ID, title: manualTitle, viewType: "blocks"})}
           style={{...styles.historyCard, display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8, cursor:"pointer"}}>
           <div style={{fontWeight:600,fontSize:13,color:"#e8e8f0"}}>📄 {block.child_page.title}</div>
           <div style={{color:"#555",fontSize:18}}>›</div>
