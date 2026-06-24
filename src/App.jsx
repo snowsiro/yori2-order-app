@@ -350,6 +350,7 @@ export default function App() {
   const [lang, setLang] = useState("de");
   const [installPrompt, setInstallPrompt] = useState(null);
   const [showIosInstall, setShowIosInstall] = useState(false);
+  const [swWaiting, setSwWaiting] = useState(null); // service worker waiting to activate
   const [currentUser, setCurrentUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem("yori2_user") || "null"); } catch { return null; }
   });
@@ -432,6 +433,28 @@ export default function App() {
     const handler = (e) => { e.preventDefault(); setInstallPrompt(e); };
     window.addEventListener("beforeinstallprompt", handler);
     return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.register("/yori2-order-app/sw.js").then(reg => {
+      const onUpdateFound = () => {
+        const newSw = reg.installing;
+        if (!newSw) return;
+        newSw.addEventListener("statechange", () => {
+          if (newSw.state === "installed" && navigator.serviceWorker.controller) {
+            setSwWaiting(newSw);
+          }
+        });
+      };
+      reg.addEventListener("updatefound", onUpdateFound);
+      if (reg.waiting && navigator.serviceWorker.controller) setSwWaiting(reg.waiting);
+    }).catch(err => console.warn("SW registration failed:", err));
+
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (!refreshing) { refreshing = true; window.location.reload(); }
+    });
   }, []);
 
   // 새로고침 시에도 루트 메뉴얼을 최신화 (캐시 먼저 표시 후 백그라운드 갱신)
@@ -1266,6 +1289,24 @@ export default function App() {
         </button>
         <button style={styles.ghostBtn} onClick={()=>{setPwPopup(false);setPendingUser(null);setPwInput("");setPwError("");}}>
           {t("취소","Abbrechen")}
+        </button>
+      </div>
+    </div>
+  );
+
+    if (swWaiting) return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+      <div style={{background:"#1a1a2e",border:"1px solid #863bff",borderRadius:16,padding:"28px 24px",maxWidth:320,width:"100%",textAlign:"center",boxShadow:"0 8px 32px rgba(0,0,0,0.6)"}}>
+        <div style={{fontSize:40,marginBottom:12}}>🆕</div>
+        <div style={{fontWeight:700,fontSize:16,color:"#e8e8f0",marginBottom:8}}>{t("새 버전이 있습니다","Neue Version verfügbar")}</div>
+        <div style={{fontSize:13,color:"#888",marginBottom:20}}>{t("앱을 업데이트하면 최신 기능을 사용할 수 있습니다.","Aktualisieren Sie die App, um die neuesten Funktionen zu nutzen.")}</div>
+        <button
+          style={{...styles.primaryBtn,width:"100%",marginBottom:10}}
+          onClick={() => { swWaiting.postMessage({type:"SKIP_WAITING"}); }}>
+          {t("지금 업데이트","Jetzt aktualisieren")}
+        </button>
+        <button style={{...styles.ghostBtn,width:"100%",fontSize:13}} onClick={() => setSwWaiting(null)}>
+          {t("나중에","Später")}
         </button>
       </div>
     </div>
