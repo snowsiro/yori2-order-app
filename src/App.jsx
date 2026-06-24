@@ -338,6 +338,10 @@ export default function App() {
     return () => { supabase.removeChannel(ch1); supabase.removeChannel(ch2); };
   }, []); // announce & notes
 
+  useEffect(() => {
+    if (currentUser) loadManualPage(MANUAL_ROOT_ID, "메뉴얼", null);
+  }, [currentUser?.email]); // refresh manual root when user changes
+
   function syncSupplierToDb(supplier) {
     supabase.from("suppliers").upsert({ id: supplier.id, name: supplier.name, channel: supplier.channel, icon: supplier.icon, color: supplier.color, items: supplier.items })
       .then(({ error }) => { if (error) console.error("Supabase supplier sync error:", error); });
@@ -399,11 +403,12 @@ export default function App() {
   }
 
   function manualGoBack() {
+    if (manualStack.length === 0) return;
     const prev = manualStack[manualStack.length - 1];
     const newStack = manualStack.slice(0, -1);
     setManualStack(newStack);
-    loadManualPage(prev.id, prev.title, null);
     setManualBlocks([]);
+    loadManualPage(prev.id, prev.title, null);
   }
 
   function renderNotionBlock(block) {
@@ -425,7 +430,7 @@ export default function App() {
       if (r.type === "mention" && r.mention?.type === "page") {
         return (
           <span key={i} style={{color:"#7b8cde",textDecoration:"underline",cursor:"pointer",...style}}
-            onClick={() => loadManualPage(r.mention.page.id, r.plain_text, {id: block.id, title: manualTitle})}>
+            onClick={() => loadManualPage(r.mention.page.id, r.plain_text, {id: manualCurrentId, title: manualTitle, viewType: "blocks"})}>
             {r.plain_text}
           </span>
         );
@@ -488,7 +493,7 @@ export default function App() {
       );
       case "child_page": return (
         <div key={block.id}
-          onClick={() => loadManualPage(block.id, block.child_page.title, {id: manualStack.length === 0 ? MANUAL_ROOT_ID : block.id, title: manualTitle})}
+          onClick={() => loadManualPage(block.id, block.child_page.title, {id: manualCurrentId, title: manualTitle, viewType: "blocks"})}
           style={{...styles.historyCard, display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8, cursor:"pointer"}}>
           <div style={{fontWeight:600,fontSize:13,color:"#e8e8f0"}}>📄 {block.child_page.title}</div>
           <div style={{color:"#555",fontSize:18}}>›</div>
