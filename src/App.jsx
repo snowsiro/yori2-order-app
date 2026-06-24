@@ -1370,9 +1370,10 @@ export default function App() {
     );
   })() : null;
 
-  // 직원 계정: 텍스트 선택 방지
+  // 직원 계정: 텍스트 선택 방지 (단, 입력창은 정상 편집 가능하도록 예외)
   const noSelectStyle = (currentUser && currentUser.role !== "owner")
-    ? `* { -webkit-user-select: none !important; user-select: none !important; }`
+    ? `* { -webkit-user-select: none !important; user-select: none !important; }
+       input, textarea { -webkit-user-select: text !important; user-select: text !important; }`
     : "";
 
   return (
