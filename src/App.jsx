@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+﻿import { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = "https://oitrivgffkdhkedhydqw.supabase.co";
@@ -402,6 +402,7 @@ export default function App() {
   const [currentManualId, setCurrentManualId] = useState(null);
   const [dbSearch, setDbSearch] = useState("");
   const [dbCategory, setDbCategory] = useState("");
+  const manualReqRef = useRef(0); // 메뉴얼 비동기 로드 경쟁 방지 토큰
   // announce & notes
   const [announcements, setAnnouncements] = useState([]);
   const [dailyNotes, setDailyNotes] = useState([]);
@@ -538,10 +539,6 @@ export default function App() {
     return () => { supabase.removeChannel(ch1); supabase.removeChannel(ch2); };
   }, []); // announce & notes
 
-  useEffect(() => {
-    if (currentUser) loadManualPage(MANUAL_ROOT_ID, "메뉴얼", null);
-  }, [currentUser?.email]); // refresh manual root when user changes
-
   function syncSupplierToDb(supplier) {
     supabase.from("suppliers").upsert({ id: supplier.id, name: supplier.name, channel: supplier.channel, icon: supplier.icon, color: supplier.color, items: supplier.items })
       .then(({ error }) => { if (error) console.error("Supabase supplier sync error:", error); });
@@ -612,6 +609,7 @@ export default function App() {
   }
 
   async function loadManualPage(pageId, title, pushStack) {
+    const req = ++manualReqRef.current; // 이 호출의 토큰
     setManualError("");
 
     // 캐시가 있으면 즉시 표시
@@ -626,7 +624,7 @@ export default function App() {
         setCurrentManualId(pageId);
         setManualLoading(false);
         // 백그라운드에서 최신 데이터 fetch 후 업데이트
-        fetchAndUpdatePage(pageId, title, cacheKey);
+        fetchAndUpdatePage(pageId, title, cacheKey, req);
         return;
       }
     } catch (_) {}
@@ -635,6 +633,7 @@ export default function App() {
     setManualLoading(true);
     try {
       const blocks = await fetchPageBlocks(pageId);
+      if (req !== manualReqRef.current) return; // 그새 다른 페이지로 이동 → 폐기
       if (pushStack) setManualStack(prev => [...prev, pushStack]);
       setManualBlocks(blocks);
       setManualTitle(title);
@@ -645,9 +644,9 @@ export default function App() {
         try { localStorage.setItem("yori2_manual_cache", JSON.stringify(blocks)); } catch (_) {}
       }
     } catch (e) {
-      setManualError(e.message);
+      if (req === manualReqRef.current) setManualError(e.message);
     }
-    setManualLoading(false);
+    if (req === manualReqRef.current) setManualLoading(false);
   }
 
   async function fetchPageBlocks(pageId) {
@@ -670,10 +669,12 @@ export default function App() {
     return blocks;
   }
 
-  async function fetchAndUpdatePage(pageId, title, cacheKey) {
+  async function fetchAndUpdatePage(pageId, title, cacheKey, req) {
     try {
       const blocks = await fetchPageBlocks(pageId);
-      setManualBlocks(blocks);
+      // 사용자가 그새 다른 페이지로 이동했으면 화면은 건드리지 않고 캐시만 갱신
+      const stillCurrent = req === undefined || req === manualReqRef.current;
+      if (stillCurrent) setManualBlocks(blocks);
       try { localStorage.setItem(cacheKey, JSON.stringify(blocks)); } catch (_) {}
       if (pageId === MANUAL_ROOT_ID) {
         try { localStorage.setItem("yori2_manual_cache", JSON.stringify(blocks)); } catch (_) {}
@@ -695,6 +696,7 @@ export default function App() {
   }
 
   async function loadDatabase(dbId, title, pushStack) {
+    const req = ++manualReqRef.current; // 이 호출의 토큰
     setManualError("");
     const cacheKey = "yori2_db_" + dbId;
 
@@ -710,9 +712,9 @@ export default function App() {
         setDbSearch("");
         setDbCategory("");
         setManualLoading(false);
-        // 백그라운드 최신화
+        // 백그라운드 최신화 (그새 이동했으면 화면은 건드리지 않음)
         fetchDatabasePages(dbId).then(pages => {
-          setManualBlocks(pages);
+          if (req === manualReqRef.current) setManualBlocks(pages);
           try { localStorage.setItem(cacheKey, JSON.stringify(pages)); } catch (_) {}
         }).catch(() => {});
         return;
@@ -723,6 +725,7 @@ export default function App() {
     setManualLoading(true);
     try {
       const pages = await fetchDatabasePages(dbId);
+      if (req !== manualReqRef.current) return; // 그새 다른 페이지로 이동 → 폐기
       if (pushStack) setManualStack(prev => [...prev, pushStack]);
       setManualBlocks(pages);
       setManualTitle(title);
@@ -732,9 +735,9 @@ export default function App() {
       setDbCategory("");
       try { localStorage.setItem(cacheKey, JSON.stringify(pages)); } catch (_) {}
     } catch (e) {
-      setManualError(e.message);
+      if (req === manualReqRef.current) setManualError(e.message);
     }
-    setManualLoading(false);
+    if (req === manualReqRef.current) setManualLoading(false);
   }
 
   function manualGoBack() {
@@ -749,7 +752,22 @@ export default function App() {
     }
   }
 
+  function extractNotionId(url) {
+    try {
+      const u = new URL(url);
+      if (!u.hostname.includes("notion")) return null;
+      const seg = u.pathname.split("/").pop() || "";
+      const m = seg.match(/([0-9a-f]{32})$/i) || seg.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i);
+      return m ? m[1].replace(/-/g, "") : null;
+    } catch { return null; }
+  }
+
   function renderNotionBlock(block) {
+    try { return renderNotionBlockInner(block); }
+    catch (e) { console.warn("block render skipped:", block?.type, e); return null; }
+  }
+
+  function renderNotionBlockInner(block) {
     const rt = (richText) => richText?.map((r, i) => {
       let style = {};
       if (r.annotations?.bold) style.fontWeight = "700";
@@ -1294,23 +1312,20 @@ export default function App() {
     </div>
   );
 
-    if (swWaiting) return (
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-      <div style={{background:"#1a1a2e",border:"1px solid #863bff",borderRadius:16,padding:"28px 24px",maxWidth:320,width:"100%",textAlign:"center",boxShadow:"0 8px 32px rgba(0,0,0,0.6)"}}>
-        <div style={{fontSize:40,marginBottom:12}}>🆕</div>
-        <div style={{fontWeight:700,fontSize:16,color:"#e8e8f0",marginBottom:8}}>{t("새 버전이 있습니다","Neue Version verfügbar")}</div>
-        <div style={{fontSize:13,color:"#888",marginBottom:20}}>{t("앱을 업데이트하면 최신 기능을 사용할 수 있습니다.","Aktualisieren Sie die App, um die neuesten Funktionen zu nutzen.")}</div>
+    const updateBanner = swWaiting ? (
+      <div style={{position:"fixed",left:0,right:0,bottom:0,zIndex:9999,background:"#1a1a2e",borderTop:"1px solid #863bff",padding:"12px 16px",display:"flex",alignItems:"center",gap:12,boxShadow:"0 -4px 20px rgba(0,0,0,0.5)"}}>
+        <div style={{fontSize:22}}>🆕</div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontWeight:700,fontSize:13,color:"#e8e8f0"}}>{t("새 버전이 있습니다","Neue Version verfügbar")}</div>
+        </div>
         <button
-          style={{...styles.primaryBtn,width:"100%",marginBottom:10}}
+          style={{...styles.primaryBtn,width:"auto",padding:"8px 14px",fontSize:13,margin:0,whiteSpace:"nowrap"}}
           onClick={() => { swWaiting.postMessage({type:"SKIP_WAITING"}); }}>
-          {t("지금 업데이트","Jetzt aktualisieren")}
+          {t("업데이트","Update")}
         </button>
-        <button style={{...styles.ghostBtn,width:"100%",fontSize:13}} onClick={() => setSwWaiting(null)}>
-          {t("나중에","Später")}
-        </button>
+        <button style={{background:"none",border:"none",color:"#888",fontSize:20,cursor:"pointer",padding:"0 4px"}} onClick={() => setSwWaiting(null)}>×</button>
       </div>
-    </div>
-  );
+    ) : null;
 
     if (!currentUser) return (
     <div style={styles.loginWrap}>
@@ -1335,12 +1350,14 @@ export default function App() {
           {loginLoading ? t("확인 중...", "Prüfen...") : t("로그인", "Anmelden")}
         </button>
       </div>
+      {updateBanner}
     </div>
   );
 
   // ── MAIN ──────────────────────────────────────────────────────────────────
   return (
     <div style={styles.app}>
+      {updateBanner}
       <header style={styles.header}>
         <div style={styles.headerLeft}>
           <img src={logoUrl} alt="Yori2" style={styles.headerLogo} />
