@@ -1355,7 +1355,7 @@ export default function App() {
   );
 
   // ── MAIN ──────────────────────────────────────────────────────────────────
-  const watermark = currentUser?.role !== "owner" ? (() => {
+  const watermark = (currentUser && currentUser.role !== "owner") ? (() => {
     const now = new Date();
     const stamp = `${currentUser.name}  ${now.toLocaleDateString("de-DE")} ${now.toLocaleTimeString("de-DE", {hour:"2-digit",minute:"2-digit"})}`;
     const items = Array.from({length: 30}, (_, i) => (
@@ -1371,7 +1371,7 @@ export default function App() {
   })() : null;
 
   // 직원 계정: 텍스트 선택 방지
-  const noSelectStyle = currentUser?.role !== "owner"
+  const noSelectStyle = (currentUser && currentUser.role !== "owner")
     ? `* { -webkit-user-select: none !important; user-select: none !important; }`
     : "";
 
