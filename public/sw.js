@@ -1,4 +1,4 @@
-const CACHE = "yori2-v1";
+const CACHE = "yori2-v2";
 
 self.addEventListener("install", () => {
   // Wait until app signals it's ready to update
