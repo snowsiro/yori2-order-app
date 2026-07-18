@@ -5,6 +5,16 @@ const SUPABASE_URL = "https://oitrivgffkdhkedhydqw.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_4PqLCIH-jrX0AsF9ws4fIA_EKIRO4d8";
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// 웹 푸시 공개키 (비밀키는 Supabase edge function secrets에만 보관)
+const VAPID_PUBLIC_KEY = "BB6wWCFQr9AVrGNXoxQW21DXTy12xJLWo8DZQmDTC9YaaqpkMs67ON8yyNm9BpxSLMorqs5ciKXjSS3Qu6UHZQ8";
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = window.atob(base64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
 
 import logoUrl from "./assets/yori-logo.jpg";
 
@@ -1096,6 +1106,12 @@ export default function App() {
       return;
     }
     setAnnouncements(prev => [data, ...prev]);
+    // 꺼져 있는 기기에도 푸시 발송 (실패해도 공지 등록 자체에는 영향 없음)
+    fetch(SUPABASE_URL + "/functions/v1/send-push", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + SUPABASE_ANON_KEY, "apikey": SUPABASE_ANON_KEY },
+      body: JSON.stringify({ title: "📢 " + currentUser.name, body: content, exclude_email: currentUser.email }),
+    }).catch(() => {});
   }
   async function handleDeleteAnnounce(id) {
     const backup = announcements;
@@ -1129,6 +1145,27 @@ export default function App() {
       alert(t("삭제에 실패했습니다.", "Löschen fehlgeschlagen."));
     }
   }
+  // 이 기기를 푸시 구독 등록 — 앱이 꺼져 있어도 공지 알림을 받음
+  async function subscribePush() {
+    try {
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+      if (Notification.permission !== "granted") return;
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+      const json = sub.toJSON();
+      await supabase.from("push_subscriptions").upsert({
+        endpoint: sub.endpoint,
+        p256dh: json.keys.p256dh,
+        auth: json.keys.auth,
+        user_email: currentUserRef.current?.email || null,
+        user_name: currentUserRef.current?.name || null,
+      }, { onConflict: "endpoint" });
+    } catch (e) { console.warn("push subscribe failed:", e); }
+  }
+
   function notifyAnnounce(a) {
     setAnnounceAlert(a);
     if ("Notification" in window && Notification.permission === "granted" && "serviceWorker" in navigator) {
@@ -1299,6 +1336,10 @@ export default function App() {
     if (unreadAnnounce > 0) navigator.setAppBadge(unreadAnnounce).catch(() => {});
     else navigator.clearAppBadge().catch(() => {});
   }, [unreadAnnounce]);
+  // 로그인 + 알림 권한 허용 상태면 이 기기를 푸시 구독 등록/갱신
+  useEffect(() => {
+    if (currentUser && notifPerm === "granted") subscribePush();
+  }, [currentUser, notifPerm]);
   const todayInfo = (() => {
     if (!scheduleData) return null;
     const today = new Date();
