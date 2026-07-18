@@ -354,11 +354,15 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem("yori2_user") || "null"); } catch { return null; }
   });
+  const currentUserRef = useRef(currentUser); // 실시간 콜백에서 최신 사용자 참조용
+  useEffect(() => { currentUserRef.current = currentUser; }, [currentUser]);
   const [loginEmail, setLoginEmail] = useState("");
   const [loginError, setLoginError] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
   const [page, _setPage] = useState(() => localStorage.getItem("yori2_page") || "home");
   const setPage = (p) => { _setPage(p); localStorage.setItem("yori2_page", p); };
+  const pageRef = useRef(page); // 실시간 콜백에서 현재 페이지 참조용
+  useEffect(() => { pageRef.current = page; }, [page]);
   const [selectedSupplier, setSelectedSupplier] = useState(null);
   const [quantities, setQuantities] = useState({});
   const [note, setNote] = useState("");
@@ -410,6 +414,8 @@ export default function App() {
   const [newNoteText, setNewNoteText] = useState("");
   const [lastReadAnnounce, setLastReadAnnounce] = useState(() => localStorage.getItem("yori2_read_announce") || "");
   const [lastReadNotes, setLastReadNotes] = useState(() => localStorage.getItem("yori2_read_notes") || "");
+  const [announceAlert, setAnnounceAlert] = useState(null); // 새 공지 실시간 팝업 (확인 전까지 유지)
+  const [notifPerm, setNotifPerm] = useState(() => ("Notification" in window) ? Notification.permission : "unsupported");
   // schedule
   const [scheduleData, setScheduleData] = useState(() => {
     try {
@@ -528,7 +534,13 @@ export default function App() {
       .then(({ data, error }) => { if (error) console.error("Fetch daily_notes:", error); if (data) setDailyNotes(data); });
     const ch1 = supabase.channel("announce-rt")
       .on("postgres_changes", {event: "*", schema: "public", table: "announcements"}, payload => {
-        if (payload.eventType === "INSERT") setAnnouncements(prev => prev.some(a => a.id === payload.new.id) ? prev : [payload.new, ...prev]);
+        if (payload.eventType === "INSERT") {
+          setAnnouncements(prev => prev.some(a => a.id === payload.new.id) ? prev : [payload.new, ...prev]);
+          if (payload.new.author_name !== currentUserRef.current?.name) {
+            if (pageRef.current === "announce") markAnnounceRead(); // 이미 공지 화면을 보는 중이면 바로 읽음 처리
+            else notifyAnnounce(payload.new);
+          }
+        }
         else if (payload.eventType === "DELETE") setAnnouncements(prev => prev.filter(a => a.id !== payload.old.id));
       }).subscribe();
     const ch2 = supabase.channel("notes-rt")
@@ -1117,10 +1129,24 @@ export default function App() {
       alert(t("삭제에 실패했습니다.", "Löschen fehlgeschlagen."));
     }
   }
+  function notifyAnnounce(a) {
+    setAnnounceAlert(a);
+    if ("Notification" in window && Notification.permission === "granted" && "serviceWorker" in navigator) {
+      navigator.serviceWorker.ready
+        .then(reg => reg.showNotification("📢 " + a.author_name, {
+          body: a.content,
+          tag: "yori2-announce",
+          icon: "/yori2-order-app/icon-192.png",
+          badge: "/yori2-order-app/icon-192.png",
+        }))
+        .catch(() => {});
+    }
+  }
   function markAnnounceRead() {
     const now = new Date().toISOString();
     setLastReadAnnounce(now);
     localStorage.setItem("yori2_read_announce", now);
+    setAnnounceAlert(null);
   }
   function markNotesRead() {
     const now = new Date().toISOString();
@@ -1267,6 +1293,12 @@ export default function App() {
   const unreadNotes = dailyNotes.filter(n =>
     n.author_name !== currentUser?.name && (!lastReadNotes || n.created_at > lastReadNotes)
   ).length;
+  // 앱 아이콘 숫자 배지 — 안 읽은 공지 수 (설치된 PWA에서 동작, 확인 시 자동 제거)
+  useEffect(() => {
+    if (!("setAppBadge" in navigator)) return;
+    if (unreadAnnounce > 0) navigator.setAppBadge(unreadAnnounce).catch(() => {});
+    else navigator.clearAppBadge().catch(() => {});
+  }, [unreadAnnounce]);
   const todayInfo = (() => {
     if (!scheduleData) return null;
     const today = new Date();
@@ -1381,6 +1413,20 @@ export default function App() {
       {noSelectStyle && <style>{noSelectStyle}</style>}
       {watermark}
       {updateBanner}
+      {announceAlert && (
+        <div style={{position:"fixed",top:10,left:10,right:10,zIndex:9998,background:"#1e1e2e",border:"1px solid #7b8cde",borderRadius:14,padding:"12px 14px",display:"flex",alignItems:"center",gap:12,boxShadow:"0 4px 20px rgba(0,0,0,0.5)"}}>
+          <div style={{fontSize:24}}>📢</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontWeight:700,fontSize:13,color:"#e8e8f0"}}>{t("새 공지사항","Neue Ankündigung")} · {announceAlert.author_name}</div>
+            <div style={{fontSize:12,color:"#aaa",marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{announceAlert.content}</div>
+          </div>
+          <button
+            style={{...styles.primaryBtn,width:"auto",padding:"8px 14px",fontSize:13,margin:0,whiteSpace:"nowrap"}}
+            onClick={() => { setPage("announce"); markAnnounceRead(); }}>
+            {t("확인","Ansehen")}
+          </button>
+        </div>
+      )}
       <header style={styles.header}>
         <div style={styles.headerLeft}>
           <img src={logoUrl} alt="Yori2" style={styles.headerLogo} />
@@ -1441,6 +1487,22 @@ export default function App() {
             <div style={{fontSize:12,color:"#888",marginBottom:20}}>
               {new Date().toLocaleDateString(lang==="ko"?"ko-KR":"de-DE",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}
             </div>
+
+            {/* 알림 권한 요청 */}
+            {notifPerm === "default" && (
+              <div style={{background:"#1a1a2e",border:"1px solid #7b8cde44",borderRadius:14,padding:"14px 18px",marginBottom:16,display:"flex",alignItems:"center",gap:14}}>
+                <div style={{fontSize:28}}>🔔</div>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:700,fontSize:14,color:"#e8e8f0"}}>{t("알림 켜기","Benachrichtigungen aktivieren")}</div>
+                  <div style={{fontSize:11,color:"#888",marginTop:2}}>{t("새 공지가 올라오면 알림을 받아요","Bei neuen Ankündigungen benachrichtigt werden")}</div>
+                </div>
+                <button
+                  onClick={() => Notification.requestPermission().then(p => setNotifPerm(p))}
+                  style={{background:"#863bff",color:"#fff",border:"none",borderRadius:8,padding:"7px 14px",fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>
+                  {t("켜기","Aktivieren")}
+                </button>
+              </div>
+            )}
 
             {/* 앱 설치 버튼 */}
             {(installPrompt || (/iphone|ipad|ipod/i.test(navigator.userAgent) && !window.navigator.standalone)) && (
