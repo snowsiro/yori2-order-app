@@ -1,6 +1,6 @@
 // Yori2 PWA service worker — 업데이트 알림 전용.
 // 네트워크 요청은 가로채지 않습니다 (항상 최신 데이터/번들 사용).
-const VERSION = "v5";
+const VERSION = "v6";
 
 self.addEventListener("activate", event => {
   // 이전 버전이 남긴 캐시 전부 삭제
@@ -10,6 +10,17 @@ self.addEventListener("activate", event => {
 // 사용자가 업데이트 버튼을 누르면 이 메시지로 새 SW가 활성화됨
 self.addEventListener("message", event => {
   if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
+});
+
+// 공지 알림 클릭 → 열린 앱 창으로 포커스, 없으면 새로 열기
+self.addEventListener("notificationclick", event => {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then(list => {
+      for (const c of list) if ("focus" in c) return c.focus();
+      return clients.openWindow("/yori2-order-app/");
+    })
+  );
 });
 
 // fetch는 가로채지 않음 — 브라우저 기본 네트워크 그대로 사용
