@@ -426,7 +426,7 @@ export default function App() {
   const [lastReadNotes, setLastReadNotes] = useState(() => localStorage.getItem("yori2_read_notes") || "");
   const [announceAlert, setAnnounceAlert] = useState(null); // 새 공지 실시간 팝업 (확인 전까지 유지)
   const [notifPerm, setNotifPerm] = useState(() => ("Notification" in window) ? Notification.permission : "unsupported");
-  const [pushStatus, setPushStatus] = useState(""); // 푸시 구독 등록 상태 (진단/표시용)
+  const [pushOn, setPushOn] = useState(false); // 이 기기 푸시 구독 등록 완료 여부
   // schedule
   const [scheduleData, setScheduleData] = useState(() => {
     try {
@@ -1149,9 +1149,8 @@ export default function App() {
   // 이 기기를 푸시 구독 등록 — 앱이 꺼져 있어도 공지 알림을 받음
   async function subscribePush() {
     try {
-      if (!("serviceWorker" in navigator)) { setPushStatus("미지원: serviceWorker 없음"); return; }
-      if (!("PushManager" in window)) { setPushStatus("미지원: PushManager 없음"); return; }
-      if (Notification.permission !== "granted") { setPushStatus("권한 미허용: " + Notification.permission); return; }
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+      if (Notification.permission !== "granted") return;
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
@@ -1171,10 +1170,9 @@ export default function App() {
         const { endpoint, ...rest } = row;
         ({ error } = await supabase.from("push_subscriptions").update(rest).eq("endpoint", endpoint));
       }
-      if (error) { setPushStatus("저장 실패: " + (error.message || error.code || JSON.stringify(error))); console.warn("push save failed:", error); }
-      else setPushStatus("등록됨 ✅");
+      if (error) { console.warn("push save failed:", error); return; }
+      setPushOn(true);
     } catch (e) {
-      setPushStatus("구독 실패: " + (e?.message || String(e)));
       console.warn("push subscribe failed:", e);
     }
   }
@@ -1549,10 +1547,10 @@ export default function App() {
               {new Date().toLocaleDateString(lang==="ko"?"ko-KR":"de-DE",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}
             </div>
 
-            {/* 푸시 구독 상태 (진단용) */}
-            {pushStatus && (
-              <div style={{fontSize:11,color: pushStatus.includes("✅") ? "#7fd88a" : "#f5a623", marginBottom:12, wordBreak:"break-all"}}>
-                🔔 {t("알림 상태","Push")}: {pushStatus}
+            {/* 알림 켜짐 표시 */}
+            {pushOn && (
+              <div style={{fontSize:11,color:"#7fd88a",marginBottom:12}}>
+                🔔 {t("알림 켜짐","Benachrichtigungen aktiv")}
               </div>
             )}
 
