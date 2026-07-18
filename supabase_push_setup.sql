@@ -13,4 +13,5 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
 ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
 -- 기기 등록/갱신만 허용, 조회는 서버(edge function, service role)만 가능
 CREATE POLICY "push_insert" ON push_subscriptions FOR INSERT WITH CHECK (true);
-CREATE POLICY "push_update" ON push_subscriptions FOR UPDATE USING (true);
+-- upsert(INSERT ... ON CONFLICT DO UPDATE)가 통과하려면 UPDATE 정책에 WITH CHECK 필요
+CREATE POLICY "push_update" ON push_subscriptions FOR UPDATE USING (true) WITH CHECK (true);
