@@ -426,6 +426,7 @@ export default function App() {
   const [lastReadNotes, setLastReadNotes] = useState(() => localStorage.getItem("yori2_read_notes") || "");
   const [announceAlert, setAnnounceAlert] = useState(null); // 새 공지 실시간 팝업 (확인 전까지 유지)
   const [notifPerm, setNotifPerm] = useState(() => ("Notification" in window) ? Notification.permission : "unsupported");
+  const [pushStatus, setPushStatus] = useState(""); // 푸시 구독 등록 상태 (진단/표시용)
   // schedule
   const [scheduleData, setScheduleData] = useState(() => {
     try {
@@ -1148,22 +1149,28 @@ export default function App() {
   // 이 기기를 푸시 구독 등록 — 앱이 꺼져 있어도 공지 알림을 받음
   async function subscribePush() {
     try {
-      if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
-      if (Notification.permission !== "granted") return;
+      if (!("serviceWorker" in navigator)) { setPushStatus("미지원: serviceWorker 없음"); return; }
+      if (!("PushManager" in window)) { setPushStatus("미지원: PushManager 없음"); return; }
+      if (Notification.permission !== "granted") { setPushStatus("권한 미허용: " + Notification.permission); return; }
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
       });
       const json = sub.toJSON();
-      await supabase.from("push_subscriptions").upsert({
+      const { error } = await supabase.from("push_subscriptions").upsert({
         endpoint: sub.endpoint,
         p256dh: json.keys.p256dh,
         auth: json.keys.auth,
         user_email: currentUserRef.current?.email || null,
         user_name: currentUserRef.current?.name || null,
       }, { onConflict: "endpoint" });
-    } catch (e) { console.warn("push subscribe failed:", e); }
+      if (error) { setPushStatus("저장 실패: " + (error.message || error.code || JSON.stringify(error))); console.warn("push upsert failed:", error); }
+      else setPushStatus("등록됨 ✅");
+    } catch (e) {
+      setPushStatus("구독 실패: " + (e?.message || String(e)));
+      console.warn("push subscribe failed:", e);
+    }
   }
 
   function notifyAnnounce(a) {
@@ -1338,6 +1345,7 @@ export default function App() {
   }, [unreadAnnounce]);
   // 로그인 + 알림 권한 허용 상태면 이 기기를 푸시 구독 등록/갱신
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (currentUser && notifPerm === "granted") subscribePush();
   }, [currentUser, notifPerm]);
   // 로그인하면 알림 권한을 자동으로 요청 (아직 결정 전인 경우) — 직원이 카드를 찾을 필요 없이 바로 허용창이 뜸
@@ -1534,6 +1542,13 @@ export default function App() {
             <div style={{fontSize:12,color:"#888",marginBottom:20}}>
               {new Date().toLocaleDateString(lang==="ko"?"ko-KR":"de-DE",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}
             </div>
+
+            {/* 푸시 구독 상태 (진단용) */}
+            {pushStatus && (
+              <div style={{fontSize:11,color: pushStatus.includes("✅") ? "#7fd88a" : "#f5a623", marginBottom:12, wordBreak:"break-all"}}>
+                🔔 {t("알림 상태","Push")}: {pushStatus}
+              </div>
+            )}
 
             {/* 알림 권한 요청 */}
             {notifPerm === "default" && (
