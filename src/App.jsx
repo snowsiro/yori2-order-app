@@ -1158,14 +1158,20 @@ export default function App() {
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
       });
       const json = sub.toJSON();
-      const { error } = await supabase.from("push_subscriptions").upsert({
+      const row = {
         endpoint: sub.endpoint,
         p256dh: json.keys.p256dh,
         auth: json.keys.auth,
         user_email: currentUserRef.current?.email || null,
         user_name: currentUserRef.current?.name || null,
-      }, { onConflict: "endpoint" });
-      if (error) { setPushStatus("저장 실패: " + (error.message || error.code || JSON.stringify(error))); console.warn("push upsert failed:", error); }
+      };
+      // upsert(ON CONFLICT)는 충돌 검사에 조회 권한을 요구해 RLS에 막힘 → 삽입 후 중복이면 갱신
+      let { error } = await supabase.from("push_subscriptions").insert(row);
+      if (error && error.code === "23505") { // 이미 등록된 endpoint → 갱신
+        const { endpoint, ...rest } = row;
+        ({ error } = await supabase.from("push_subscriptions").update(rest).eq("endpoint", endpoint));
+      }
+      if (error) { setPushStatus("저장 실패: " + (error.message || error.code || JSON.stringify(error))); console.warn("push save failed:", error); }
       else setPushStatus("등록됨 ✅");
     } catch (e) {
       setPushStatus("구독 실패: " + (e?.message || String(e)));
