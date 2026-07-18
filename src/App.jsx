@@ -1340,6 +1340,12 @@ export default function App() {
   useEffect(() => {
     if (currentUser && notifPerm === "granted") subscribePush();
   }, [currentUser, notifPerm]);
+  // 로그인하면 알림 권한을 자동으로 요청 (아직 결정 전인 경우) — 직원이 카드를 찾을 필요 없이 바로 허용창이 뜸
+  useEffect(() => {
+    if (currentUser && notifPerm === "default" && "Notification" in window) {
+      Notification.requestPermission().then(p => setNotifPerm(p)).catch(() => {});
+    }
+  }, [currentUser]); // eslint-disable-line react-hooks/exhaustive-deps
   const todayInfo = (() => {
     if (!scheduleData) return null;
     const today = new Date();
