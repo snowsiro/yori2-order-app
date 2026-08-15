@@ -55,6 +55,20 @@ body {
   background: #0f0f18;
 }
 
+/* 화면 크기에 따라 본문 최대 너비 확장 (폰 → 태블릿 → 데스크톱) */
+.yori-app,
+.yori-main { max-width: 600px; }
+
+@media (min-width: 768px) {
+  .yori-app,
+  .yori-main { max-width: 900px; }
+}
+
+@media (min-width: 1280px) {
+  .yori-app,
+  .yori-main { max-width: 1100px; }
+}
+
 #root {
   width: 100%;
   max-width: 100%;
