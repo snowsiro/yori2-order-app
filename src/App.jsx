@@ -1468,7 +1468,7 @@ export default function App() {
     : "";
 
   return (
-    <div style={styles.app}>
+    <div style={styles.app} className="yori-app">
       {noSelectStyle && <style>{noSelectStyle}</style>}
       {watermark}
       {updateBanner}
@@ -1536,7 +1536,7 @@ export default function App() {
         )}
       </nav>
 
-      <main style={styles.main}>
+      <main style={styles.main} className="yori-main">
 
         {page === "home" && (
           <div>
@@ -1638,6 +1638,7 @@ export default function App() {
                 </div>
               </div>
             )}
+            <div style={{display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(280px, 1fr))", gap:12}}>
             {[
               { icon:"📢", label:t("공지사항","Ankündigungen"), sub:t("오너 공지 확인","Ankündigungen lesen"), badge: unreadAnnounce, action:()=>{ setPage("announce"); markAnnounceRead(); } },
               { icon:"📝", label:t("특이사항","Tagesnotizen"), sub:t("오늘의 특이사항 기록","Notizen des Tages"), badge: unreadNotes, action:()=>{ setPage("notes"); markNotesRead(); } },
@@ -1653,7 +1654,6 @@ export default function App() {
                   border: "1px solid " + (item.badge > 0 ? "#7b8cde" : "#2a2a3e"),
                   borderRadius: 14,
                   padding: "18px 20px",
-                  marginBottom: 12,
                   display: "flex",
                   alignItems: "center",
                   gap: 16,
@@ -1672,6 +1672,7 @@ export default function App() {
                 {item.action && <div style={{color:"#555",fontSize:18}}>›</div>}
               </div>
             ))}
+            </div>
           </div>
         )}
 
@@ -2364,7 +2365,7 @@ export default function App() {
 }
 
 const styles = {
-  app: { minHeight:"100vh", background:"#0f0f18", color:"#e8e8f0", fontFamily:"'Noto Sans KR','Noto Sans',sans-serif", overflowX:"hidden", width:"100%", maxWidth:600, margin:"0 auto" },
+  app: { minHeight:"100vh", background:"#0f0f18", color:"#e8e8f0", fontFamily:"'Noto Sans KR','Noto Sans',sans-serif", overflowX:"hidden", width:"100%", margin:"0 auto" },
   loginWrap: { minHeight:"100vh", background:"#0f0f18", display:"flex", alignItems:"center", justifyContent:"center", padding:16 },
   loginCard: { background:"#1a1a2e", border:"1px solid #2a2a4a", borderRadius:20, padding:"36px 28px", width:"100%", maxWidth:360, textAlign:"center" },
   logo: { width:120, height:120, objectFit:"contain", borderRadius:12, display:"block", margin:"0 auto 12px auto" },
@@ -2389,9 +2390,9 @@ const styles = {
   navBtn: { flex:"0 0 auto", background:"transparent", border:"none", borderBottom:"3px solid transparent", color:"#888", padding:"13px 10px", cursor:"pointer", fontSize:12, position:"relative", whiteSpace:"nowrap" },
   navActive: { flex:"0 0 auto", background:"transparent", border:"none", borderBottom:"3px solid #fff", color:"#e8e8f0", padding:"13px 10px", cursor:"pointer", fontSize:12, fontWeight:600, position:"relative", whiteSpace:"nowrap" },
   badge: { background:"#e8472a", color:"#fff", borderRadius:10, padding:"1px 6px", fontSize:11, marginLeft:6 },
-  main: { padding:16, maxWidth:600, margin:"0 auto" },
+  main: { padding:16, margin:"0 auto" },
   sectionTitle: { fontSize:14, fontWeight:700, color:"#c8c8d8", marginBottom:12, marginTop:8 },
-  supplierGrid: { display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 },
+  supplierGrid: { display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(150px, 1fr))", gap:10 },
   supplierCard: { background:"#1a1a2e", border:"2px solid", borderRadius:14, padding:"18px 10px", cursor:"pointer", textAlign:"center" },
   supplierIcon: { fontSize:28, marginBottom:6 },
   supplierName: { fontSize:12, fontWeight:600, color:"#e8e8f0", marginBottom:7, lineHeight:1.3 },
