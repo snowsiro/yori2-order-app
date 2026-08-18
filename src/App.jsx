@@ -1001,7 +1001,8 @@ export default function App() {
     const dateRow = rows[dayRowIdx + 1];
     // 요일/날짜 행 위의 행들 = 특별 일정 메모 (예: PM = Personal Meeting)
     const memoRows = rows.slice(0, dayRowIdx);
-    const isNoiseCell = (s) => /^(19|20)\d\d$/.test(s) || MONTH_DE.includes(s);
+    // 시트 맨 위 제목(YORI2)이 각 주 블록 첫 열(=월요일)에 반복돼 메모로 잡히므로 함께 걸러냄
+    const isNoiseCell = (s) => /^(19|20)\d\d$/.test(s) || MONTH_DE.includes(s) || /^yori\s*2$/i.test(s);
 
     const staffRows = [];
     for (let i = dayRowIdx + 2; i < rows.length; i++) {
