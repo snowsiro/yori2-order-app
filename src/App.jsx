@@ -1,5 +1,52 @@
 ﻿import { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
+import {
+  HouseIcon,
+  MegaphoneIcon,
+  NotebookPenIcon,
+  BookOpenIcon,
+  CalendarDaysIcon,
+  PackageIcon,
+  ClipboardListIcon,
+  SettingsIcon,
+  BellIcon,
+  SmartphoneIcon,
+  UsersIcon,
+  UserIcon,
+  PinIcon,
+  XIcon,
+  ArrowLeftIcon,
+  SearchIcon,
+  RotateCcwIcon,
+  SendIcon,
+  CircleCheckIcon,
+  CheckIcon,
+  CopyIcon,
+  Trash2Icon,
+  PlusIcon,
+  CrownIcon,
+  FileTextIcon,
+  DatabaseIcon,
+  ImageOffIcon,
+  ChevronRightIcon,
+  SquareCheckIcon,
+  SquareIcon,
+  LinkIcon,
+  LockKeyholeIcon,
+  SparklesIcon,
+  BeefIcon,
+  FishIcon,
+  EggIcon,
+  MilkIcon,
+  LeafyGreenIcon,
+  WheatIcon,
+  DropletIcon,
+  CupSodaIcon,
+  BeerIcon,
+  ShoppingBasketIcon,
+  SprayCanIcon,
+  GlobeIcon,
+} from "lucide-react";
 
 const SUPABASE_URL = "https://oitrivgffkdhkedhydqw.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_4PqLCIH-jrX0AsF9ws4fIA_EKIRO4d8";
@@ -7,6 +54,29 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // 웹 푸시 공개키 (비밀키는 Supabase edge function secrets에만 보관)
 const VAPID_PUBLIC_KEY = "BB6wWCFQr9AVrGNXoxQW21DXTy12xJLWo8DZQmDTC9YaaqpkMs67ON8yyNm9BpxSLMorqs5ciKXjSS3Qu6UHZQ8";
+
+// 공급처 아이콘: DB(suppliers.icon)에는 이모지가 저장돼 있다. 아는 값은 Lucide 아이콘으로 그리고,
+// 모르는 값은 저장된 그대로 보여 준다. 새 공급처는 이 목록에서 고른다 (DESIGN.md).
+const SUPPLIER_ICONS = [
+  ["📦", PackageIcon, "포장·기타", "Verpackung"],
+  ["🥩", BeefIcon, "고기", "Fleisch"],
+  ["🐟", FishIcon, "생선", "Fisch"],
+  ["🥚", EggIcon, "달걀", "Eier"],
+  ["🥛", MilkIcon, "유제품", "Milchprodukte"],
+  ["🥬", LeafyGreenIcon, "채소", "Gemüse"],
+  ["🌾", WheatIcon, "곡물·가루", "Getreide"],
+  ["🌻", DropletIcon, "기름", "Öl"],
+  ["🥤", CupSodaIcon, "음료", "Getränke"],
+  ["🍺", BeerIcon, "주류", "Alkohol"],
+  ["🧺", ShoppingBasketIcon, "식료품", "Lebensmittel"],
+  ["🧴", SprayCanIcon, "청소용품", "Reinigung"],
+  ["🌐", GlobeIcon, "웹 주문", "Webshop"],
+];
+const SUPPLIER_ICON = { ...Object.fromEntries(SUPPLIER_ICONS.map(([k, Icon]) => [k, Icon])), "🇰🇷": ShoppingBasketIcon };
+function SupplierIcon({ icon }) {
+  const Icon = SUPPLIER_ICON[icon];
+  return Icon ? <Icon /> : <span>{icon}</span>;
+}
 
 // 공급처 색은 관리자가 고르는 색이라, 그 위·그 색으로 쓰는 글자는 대비를 계산한다 (DESIGN.md).
 function luminance(hex) {
@@ -905,7 +975,7 @@ export default function App() {
         <div key={block.id}
           onClick={() => loadManualPage(block.id, block.child_page.title, {id: currentManualId || MANUAL_ROOT_ID, title: manualTitle, viewType: "blocks"})}
           style={{...styles.historyCard, display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8, cursor:"pointer"}}>
-          <div style={{fontWeight:600,fontSize:13,color:"#e8e8f0"}}>📄 {block.child_page.title}</div>
+          <div style={{fontWeight:600,fontSize:13,color:"#e8e8f0"}}><FileTextIcon /> {block.child_page.title}</div>
           <div style={{color:"#999",fontSize:18}}>›</div>
         </div>
       );
@@ -914,7 +984,7 @@ export default function App() {
         <div key={block.id}
           onClick={() => loadDatabase(block.id, block.child_database.title, {id: currentManualId || MANUAL_ROOT_ID, title: manualTitle, viewType: "blocks"})}
           style={{...styles.historyCard, display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8, cursor:"pointer"}}>
-          <div style={{fontWeight:600,fontSize:13,color:"#e8e8f0"}}>🗄️ {block.child_database.title}</div>
+          <div style={{fontWeight:600,fontSize:13,color:"#e8e8f0"}}><DatabaseIcon /> {block.child_database.title}</div>
           <div style={{color:"#999",fontSize:18}}>›</div>
         </div>
       );
@@ -932,7 +1002,7 @@ export default function App() {
               style={{maxWidth:"100%",borderRadius:8,border:"1px solid #2a2a3e"}}
               onError={e => { e.target.style.display="none"; e.target.nextSibling.style.display="block"; }}
             />
-            <div style={{display:"none",fontSize:12,color:"#999",padding:8}}>🖼️ 이미지를 불러올 수 없습니다</div>
+            <div style={{display:"none",fontSize:12,color:"#999",padding:8}}><ImageOffIcon /> 이미지를 불러올 수 없습니다</div>
             {caption && <div style={{fontSize:11,color:"#999",marginTop:4}}>{caption}</div>}
           </div>
         ) : null;
@@ -940,7 +1010,7 @@ export default function App() {
       case "toggle": return (
         <details key={block.id} style={{marginBottom:6}}>
           <summary style={{fontSize:13,color:"#b0b0c8",cursor:"pointer",padding:"2px 0",listStyle:"none",display:"flex",alignItems:"center",gap:6}}>
-            <span style={{color:"#999",fontSize:10}}>▶</span>
+            <ChevronRightIcon style={{color:"#999"}} />
             <span>{rt(block.toggle?.rich_text)}</span>
           </summary>
           <div style={{paddingLeft:16,marginTop:4}}>
@@ -960,8 +1030,8 @@ export default function App() {
       );
       case "to_do": return (
         <div key={block.id} style={{fontSize:13,color:"#b0b0c8",lineHeight:1.6,marginBottom:4,paddingLeft:4,display:"flex",gap:8,alignItems:"flex-start"}}>
-          <span style={{color: block.to_do.checked ? "#7b8cde" : "#444", fontSize:15}}>
-            {block.to_do.checked ? "☑" : "☐"}
+          <span style={{color: block.to_do.checked ? "#7b8cde" : "#999", fontSize:15}}>
+            {block.to_do.checked ? <SquareCheckIcon /> : <SquareIcon />}
           </span>
           <span style={{textDecoration: block.to_do.checked ? "line-through" : "none", opacity: block.to_do.checked ? 0.5 : 1}}>
             {rt(block.to_do.rich_text)}
@@ -1000,7 +1070,7 @@ export default function App() {
           <div key={block.id}
             onClick={() => loadManualPage(lpId, "페이지", {id: currentManualId || MANUAL_ROOT_ID, title: manualTitle, viewType: "blocks"})}
             style={{...styles.historyCard, display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8, cursor:"pointer"}}>
-            <div style={{fontWeight:600,fontSize:13,color:"#7b8cde"}}>🔗 {block.link_to_page?.page_id ? "페이지 링크" : "데이터베이스 링크"}</div>
+            <div style={{fontWeight:600,fontSize:13,color:"#7b8cde"}}><LinkIcon /> {block.link_to_page?.page_id ? "페이지 링크" : "데이터베이스 링크"}</div>
             <div style={{color:"#999",fontSize:18}}>›</div>
           </div>
         );
@@ -1409,7 +1479,7 @@ export default function App() {
     <div style={styles.loginWrap}>
       <div style={styles.loginCard}>
         <img src={logoUrl} alt="Yori2" style={styles.logo} />
-        <div style={styles.loginTitle}>🔐 {t("사장님 비밀번호","Passwort Inhaber")}</div>
+        <div style={styles.loginTitle}><LockKeyholeIcon /> {t("사장님 비밀번호","Passwort Inhaber")}</div>
         <div style={{fontSize:12,color:"#888",marginBottom:14}}>{pendingUser?.name}</div>
         <input
           style={styles.input}
@@ -1433,7 +1503,7 @@ export default function App() {
 
     const updateBanner = swWaiting ? (
       <div style={{position:"fixed",left:0,right:0,bottom:0,zIndex:9999,background:"#1a1a2e",borderTop:"1px solid #863bff",padding:"12px 16px",display:"flex",alignItems:"center",gap:12,boxShadow:"0 -4px 20px rgba(0,0,0,0.5)"}}>
-        <div style={{fontSize:22}}>🆕</div>
+        <SparklesIcon style={{width:22,height:22,color:"#b98aff"}} />
         <div style={{flex:1,minWidth:0}}>
           <div style={{fontWeight:700,fontSize:13,color:"#e8e8f0"}}>{t("새 버전이 있습니다","Neue Version verfügbar")}</div>
         </div>
@@ -1502,7 +1572,7 @@ export default function App() {
       {updateBanner}
       {announceAlert && (
         <div style={{position:"fixed",top:10,left:10,right:10,zIndex:9998,background:"#1e1e2e",border:"1px solid #7b8cde",borderRadius:14,padding:"12px 14px",display:"flex",alignItems:"center",gap:12,boxShadow:"0 4px 20px rgba(0,0,0,0.5)"}}>
-          <div style={{fontSize:24}}>📢</div>
+          <MegaphoneIcon style={{width:24,height:24,color:"#7b8cde"}} />
           <div style={{flex:1,minWidth:0}}>
             <div style={{fontWeight:700,fontSize:13,color:"#e8e8f0"}}>{t("새 공지사항","Neue Ankündigung")} · {announceAlert.author_name}</div>
             <div style={{fontSize:12,color:"#aaa",marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{announceAlert.content}</div>
@@ -1533,33 +1603,33 @@ export default function App() {
 
       <nav style={styles.nav} className="yori-nav">
         <button style={page==="home"?styles.navActive:styles.navBtn} onClick={()=>setPage("home")}>
-          🏠 {t("홈","Home")}
+          <HouseIcon /> {t("홈","Home")}
         </button>
         <button style={page==="announce"?styles.navActive:styles.navBtn} onClick={()=>{setPage("announce");markAnnounceRead();}}>
-          📢 {t("공지","Info")}
+          <MegaphoneIcon /> {t("공지","Info")}
           {unreadAnnounce > 0 && <span style={styles.badge}>{unreadAnnounce}</span>}
         </button>
         <button style={page==="notes"?styles.navActive:styles.navBtn} onClick={()=>{setPage("notes");markNotesRead();}}>
-          📝 {t("특이사항","Notizen")}
+          <NotebookPenIcon /> {t("특이사항","Notizen")}
           {unreadNotes > 0 && <span style={styles.badge}>{unreadNotes}</span>}
         </button>
         <button style={page==="manual"?styles.navActive:styles.navBtn} onClick={()=>{setPage("manual"); if(manualBlocks.length===0) loadManualPage(MANUAL_ROOT_ID,"메뉴얼",null);}}>
-          📖 {t("메뉴얼","Handbuch")}
+          <BookOpenIcon /> {t("메뉴얼","Handbuch")}
         </button>
         <button style={page==="schedule"?styles.navActive:styles.navBtn} onClick={()=>{setPage("schedule"); loadSchedule(scheduleSelectedMonth);}}>
-          📅 {t("근무일정","Dienstplan")}
+          <CalendarDaysIcon /> {t("근무일정","Dienstplan")}
         </button>
         <button style={page==="order"?styles.navActive:styles.navBtn} onClick={()=>{setPage("order");handleNewOrder();}}>
-          📦 {t("발주","Bestellung")}
+          <PackageIcon /> {t("발주","Bestellung")}
         </button>
         <button style={page==="history"?styles.navActive:styles.navBtn} onClick={()=>setPage("history")}>
-          📋 {t("내역","Verlauf")}
+          <ClipboardListIcon /> {t("내역","Verlauf")}
           {orders.filter(o=>o.status==="pending").length > 0 &&
             <span style={styles.badge}>{orders.filter(o=>o.status==="pending").length}</span>}
         </button>
         {currentUser.role==="owner" && (
           <button style={page==="settings"?styles.navActive:styles.navBtn} onClick={()=>{setPage("settings");setSettingsView("list");}}>
-            ⚙️ {t("설정","Einst.")}
+            <SettingsIcon /> {t("설정","Einst.")}
           </button>
         )}
       </nav>
@@ -1578,14 +1648,14 @@ export default function App() {
             {/* 알림 켜짐 표시 */}
             {pushOn && (
               <div style={{fontSize:11,color:"#7fd88a",marginBottom:12}}>
-                🔔 {t("알림 켜짐","Benachrichtigungen aktiv")}
+                <BellIcon /> {t("알림 켜짐","Benachrichtigungen aktiv")}
               </div>
             )}
 
             {/* 알림 권한 요청 */}
             {notifPerm === "default" && (
               <div style={{background:"#1a1a2e",border:"1px solid #7b8cde44",borderRadius:14,padding:"14px 18px",marginBottom:16,display:"flex",alignItems:"center",gap:14}}>
-                <div style={{fontSize:28}}>🔔</div>
+                <BellIcon style={{width:28,height:28,color:"#7b8cde"}} />
                 <div style={{flex:1}}>
                   <div style={{fontWeight:700,fontSize:14,color:"#e8e8f0"}}>{t("알림 켜기","Benachrichtigungen aktivieren")}</div>
                   <div style={{fontSize:11,color:"#888",marginTop:2}}>{t("새 공지가 올라오면 알림을 받아요","Bei neuen Ankündigungen benachrichtigt werden")}</div>
@@ -1601,7 +1671,7 @@ export default function App() {
             {/* 앱 설치 버튼 */}
             {(installPrompt || (/iphone|ipad|ipod/i.test(navigator.userAgent) && !window.navigator.standalone)) && (
               <div style={{background:"#1a1a2e",border:"1px solid #863bff44",borderRadius:14,padding:"14px 18px",marginBottom:16,display:"flex",alignItems:"center",gap:14}}>
-                <div style={{fontSize:28}}>📲</div>
+                <SmartphoneIcon style={{width:28,height:28,color:"#b98aff"}} />
                 <div style={{flex:1}}>
                   <div style={{fontWeight:700,fontSize:14,color:"#e8e8f0"}}>{t("앱으로 설치","App installieren")}</div>
                   <div style={{fontSize:11,color:"#888",marginTop:2}}>{t("홈 화면에 추가하면 더 빠르게 실행돼요","Zum Startbildschirm hinzufügen")}</div>
@@ -1626,7 +1696,7 @@ export default function App() {
             {showIosInstall && (
               <div style={{position:"fixed",inset:0,background:"#000a",zIndex:999,display:"flex",alignItems:"flex-end"}} onClick={()=>setShowIosInstall(false)}>
                 <div style={{background:"#1e1e2e",borderRadius:"20px 20px 0 0",padding:28,width:"100%",boxSizing:"border-box"}} onClick={e=>e.stopPropagation()}>
-                  <div style={{fontWeight:700,fontSize:16,color:"#e8e8f0",marginBottom:16,textAlign:"center"}}>📲 {t("홈 화면에 추가","Zum Startbildschirm")}</div>
+                  <div style={{fontWeight:700,fontSize:16,color:"#e8e8f0",marginBottom:16,textAlign:"center"}}><SmartphoneIcon /> {t("홈 화면에 추가","Zum Startbildschirm")}</div>
                   <div style={{display:"flex",flexDirection:"column",gap:12}}>
                     {[
                       {step:"1", text: t("하단 공유 버튼 탭 (□↑)","Unten auf Teilen tippen (□↑)")},
@@ -1649,9 +1719,9 @@ export default function App() {
               <div
                 onClick={()=>{ setPage("schedule"); loadSchedule(scheduleSelectedMonth); }}
                 style={{background:"#1e1e2e",border:"1px solid #2a2a3e",borderRadius:14,padding:"14px 16px",marginBottom:12,cursor:"pointer"}}>
-                <div style={{fontWeight:700,fontSize:13,color:"#c8c8d8",marginBottom:10}}>👥 {t("오늘 근무","Heute im Dienst")}</div>
+                <div style={{fontWeight:700,fontSize:13,color:"#c8c8d8",marginBottom:10}}><UsersIcon /> {t("오늘 근무","Heute im Dienst")}</div>
                 {todayInfo.memo && (
-                  <div style={{fontSize:12,color:"#f5d020",marginBottom:8}}>📌 {todayInfo.memo}</div>
+                  <div style={{fontSize:12,color:"#f5d020",marginBottom:8}}><PinIcon /> {todayInfo.memo}</div>
                 )}
                 <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
                   {todayInfo.shifts.map(({name, shift}) => {
@@ -1668,11 +1738,11 @@ export default function App() {
             )}
             <div style={{display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(280px, 1fr))", gap:12}}>
             {[
-              { icon:"📢", label:t("공지사항","Ankündigungen"), sub:t("오너 공지 확인","Ankündigungen lesen"), badge: unreadAnnounce, action:()=>{ setPage("announce"); markAnnounceRead(); } },
-              { icon:"📝", label:t("특이사항","Tagesnotizen"), sub:t("오늘의 특이사항 기록","Notizen des Tages"), badge: unreadNotes, action:()=>{ setPage("notes"); markNotesRead(); } },
-              { icon:"📖", label:t("식당 메뉴얼","Handbuch"), sub:t("레시피 및 운영 메뉴얼","Rezepte & Handbuch"), action:()=>{ setPage("manual"); if(manualBlocks.length===0) loadManualPage(MANUAL_ROOT_ID,"메뉴얼",null); } },
-              { icon:"📅", label:t("근무일정","Dienstplan"), sub:t("이번 주 근무표 확인","Dienstplan ansehen"), action:()=>{ setPage("schedule"); loadSchedule(scheduleSelectedMonth); } },
-              { icon:"📦", label:t("식자재 발주","Bestellung"), sub:t("공급업체에 발주서 작성","Bestellung aufgeben"), action:()=>{ setPage("order"); handleNewOrder(); } },
+              { icon:MegaphoneIcon, label:t("공지사항","Ankündigungen"), sub:t("오너 공지 확인","Ankündigungen lesen"), badge: unreadAnnounce, action:()=>{ setPage("announce"); markAnnounceRead(); } },
+              { icon:NotebookPenIcon, label:t("특이사항","Tagesnotizen"), sub:t("오늘의 특이사항 기록","Notizen des Tages"), badge: unreadNotes, action:()=>{ setPage("notes"); markNotesRead(); } },
+              { icon:BookOpenIcon, label:t("식당 메뉴얼","Handbuch"), sub:t("레시피 및 운영 메뉴얼","Rezepte & Handbuch"), action:()=>{ setPage("manual"); if(manualBlocks.length===0) loadManualPage(MANUAL_ROOT_ID,"메뉴얼",null); } },
+              { icon:CalendarDaysIcon, label:t("근무일정","Dienstplan"), sub:t("이번 주 근무표 확인","Dienstplan ansehen"), action:()=>{ setPage("schedule"); loadSchedule(scheduleSelectedMonth); } },
+              { icon:PackageIcon, label:t("식자재 발주","Bestellung"), sub:t("공급업체에 발주서 작성","Bestellung aufgeben"), action:()=>{ setPage("order"); handleNewOrder(); } },
             ].map(item => (
               <div
                 key={item.label}
@@ -1689,7 +1759,7 @@ export default function App() {
                   opacity: item.action ? 1 : 0.45,
                 }}
               >
-                <div style={{fontSize:32}}>{item.icon}</div>
+                <item.icon style={{width:32,height:32,color:"#b98aff"}} />
                 <div style={{flex:1}}>
                   <div style={{fontWeight:700,fontSize:15,color:"#e8e8f0",display:"flex",alignItems:"center",gap:6}}>
                     {item.label}
@@ -1706,7 +1776,7 @@ export default function App() {
 
         {page === "announce" && (
           <div>
-            <div style={{fontWeight:700,fontSize:15,color:"#e8e8f0",marginBottom:16}}>📢 {t("공지사항","Ankündigungen")}</div>
+            <div style={{fontWeight:700,fontSize:15,color:"#e8e8f0",marginBottom:16}}><MegaphoneIcon /> {t("공지사항","Ankündigungen")}</div>
             {currentUser.role === "owner" && (
               <div style={{marginBottom:16}}>
                 <textarea
@@ -1728,7 +1798,7 @@ export default function App() {
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
                   <div style={{fontSize:11,color:"#888"}}>{a.author_name} · {new Date(a.created_at).toLocaleDateString(lang==="ko"?"ko-KR":"de-DE",{month:"short",day:"numeric"})} {new Date(a.created_at).toLocaleTimeString(lang==="ko"?"ko-KR":"de-DE",{hour:"2-digit",minute:"2-digit"})}</div>
                   {currentUser.role === "owner" && (
-                    <button onClick={()=>handleDeleteAnnounce(a.id)} style={{background:"transparent",border:"none",color:"#999",cursor:"pointer",fontSize:16,padding:0,lineHeight:1}}>✕</button>
+                    <button onClick={()=>handleDeleteAnnounce(a.id)} aria-label={t("삭제","Löschen")} style={{background:"transparent",border:"none",color:"#999",cursor:"pointer",fontSize:16,padding:0,lineHeight:1}}><XIcon /></button>
                   )}
                 </div>
                 <div style={{fontSize:13,color:"#c8c8d8",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{a.content}</div>
@@ -1739,7 +1809,7 @@ export default function App() {
 
         {page === "notes" && (
           <div>
-            <div style={{fontWeight:700,fontSize:15,color:"#e8e8f0",marginBottom:16}}>📝 {t("특이사항","Tagesnotizen")}</div>
+            <div style={{fontWeight:700,fontSize:15,color:"#e8e8f0",marginBottom:16}}><NotebookPenIcon /> {t("특이사항","Tagesnotizen")}</div>
             <div style={{marginBottom:16}}>
               <textarea
                 style={{...styles.input, minHeight:80, resize:"vertical", fontFamily:"inherit"}}
@@ -1768,7 +1838,7 @@ export default function App() {
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
                         <div style={{fontSize:11,color:"#888"}}>{n.author_name} · {new Date(n.created_at).toLocaleTimeString(lang==="ko"?"ko-KR":"de-DE",{hour:"2-digit",minute:"2-digit"})}</div>
                         {(currentUser.role === "owner" || currentUser.name === n.author_name) && (
-                          <button onClick={()=>handleDeleteNote(n.id)} style={{background:"transparent",border:"none",color:"#999",cursor:"pointer",fontSize:16,padding:0,lineHeight:1}}>✕</button>
+                          <button onClick={()=>handleDeleteNote(n.id)} aria-label={t("삭제","Löschen")} style={{background:"transparent",border:"none",color:"#999",cursor:"pointer",fontSize:16,padding:0,lineHeight:1}}><XIcon /></button>
                         )}
                       </div>
                       <div style={{fontSize:13,color:"#c8c8d8",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{n.content}</div>
@@ -1784,9 +1854,9 @@ export default function App() {
           <div>
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16}}>
               {manualStack.length > 0 && (
-                <button style={styles.backBtn} onClick={manualGoBack}>←</button>
+                <button style={styles.backBtn} onClick={manualGoBack} aria-label={t("뒤로","Zurück")}><ArrowLeftIcon /></button>
               )}
-              <div style={{fontWeight:700,fontSize:15,color:"#e8e8f0"}}>📖 {manualTitle}</div>
+              <div style={{fontWeight:700,fontSize:15,color:"#e8e8f0"}}><BookOpenIcon /> {manualTitle}</div>
             </div>
             {manualLoading && <div style={{color:"#888",textAlign:"center",padding:30}}>{t("불러오는 중...","Laden...")}</div>}
             {manualError && <div style={styles.error}>{manualError}</div>}
@@ -1794,7 +1864,7 @@ export default function App() {
               const pages = manualBlocks.map(page => {
                 const titleProp = Object.values(page.properties || {}).find(p => p.type === "title");
                 const title = titleProp?.title?.map(t => t.plain_text).join("") || "Untitled";
-                const icon = page.icon?.emoji || "📄";
+                const icon = page.icon?.emoji;
                 const props = page.properties || {};
                 const catProp = Object.entries(props).find(([k, v]) => k.toLowerCase() === "kategorie" && (v.type === "select" || v.type === "multi_select"))?.[1]
                   || Object.values(props).find(p => p.type === "select" || p.type === "multi_select");
@@ -1827,7 +1897,7 @@ export default function App() {
                 <div>
                   {/* 검색창 */}
                   <div style={{position:"relative", marginBottom:10}}>
-                    <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"#999",fontSize:14}}>🔍</span>
+                    <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"#999",fontSize:14,lineHeight:1}}><SearchIcon /></span>
                     <input
                       value={dbSearch}
                       onChange={e => setDbSearch(e.target.value)}
@@ -1867,7 +1937,7 @@ export default function App() {
                       onClick={() => loadManualPage(page.id, title, {id: currentManualId, title: manualTitle, viewType: "database"})}
                       style={{...styles.historyCard, display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8, cursor:"pointer"}}>
                       <div>
-                        <div style={{fontWeight:600,fontSize:13,color:"#e8e8f0"}}>{icon} {title}</div>
+                        <div style={{fontWeight:600,fontSize:13,color:"#e8e8f0"}}>{icon || <FileTextIcon />} {title}</div>
                         {categories.length > 0 && (
                           <div style={{display:"flex",gap:4,marginTop:3,flexWrap:"wrap"}}>
                             {categories.map(c => (
@@ -1889,7 +1959,7 @@ export default function App() {
         {page === "schedule" && (
           <div>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
-              <div style={{fontWeight:700,fontSize:15,color:"#e8e8f0"}}>📅 {t("근무일정","Dienstplan")}</div>
+              <div style={{fontWeight:700,fontSize:15,color:"#e8e8f0"}}><CalendarDaysIcon /> {t("근무일정","Dienstplan")}</div>
               <select
                 style={{background:"#1e1e2e",color:"#e8e8f0",border:"1px solid #333",borderRadius:8,padding:"4px 8px",fontSize:13}}
                 value={scheduleSelectedMonth}
@@ -1926,7 +1996,7 @@ export default function App() {
                     <div style={{background:"#1e1c10",border:"1px solid #3a3416",borderRadius:8,padding:"7px 10px",marginBottom:8}}>
                       {week.dates.map((d, i) => d.memo ? (
                         <div key={i} style={{fontSize:11,color:"#f5d020",padding:"1px 0"}}>
-                          📌 {["MO","DI","MI","DO","FR","SA","SO"][i]} {d.day}. — {d.memo}
+                          <PinIcon /> {["MO","DI","MI","DO","FR","SA","SO"][i]} {d.day}. — {d.memo}
                         </div>
                       ) : null)}
                     </div>
@@ -1947,7 +2017,7 @@ export default function App() {
                           <div style={{fontSize:12, fontWeight:700, color: isHoliday ? "#ff6b6b" : isToday ? "#f5a623" : "#ccc"}}>{week.dates[i].day}</div>
                           {isToday && <div style={{fontSize:9,color:"#f5a623"}}>오늘</div>}
                           {isHoliday && <div style={{fontSize:9,color:"#ff6b6b"}}>공휴일</div>}
-                          {week.dates[i].memo && <div style={{fontSize:9}}>📌</div>}
+                          {week.dates[i].memo && <PinIcon style={{width:12,height:12}} />}
                         </div>
                       );
                     })}
@@ -2013,14 +2083,14 @@ export default function App() {
                   {suppliers.map(s => (
                     <button key={s.id} style={{...styles.supplierCard, borderColor: s.color}}
                       onClick={() => { setSelectedSupplier(s); setQuantities({}); }}>
-                      <div style={styles.supplierIcon}>{s.icon}</div>
+                      <div style={{...styles.supplierIcon, color: readableOnDark(s.color)}}><SupplierIcon icon={s.icon} /></div>
                       <div style={styles.supplierName}>{s.name[lang]}</div>
                       <div style={{...styles.channelBadge,
                         background: CHANNEL_LABEL[s.channel].color,
                         color: CHANNEL_LABEL[s.channel].textColor || "#fff"}}>
                         {CHANNEL_LABEL[s.channel][lang]}
                       </div>
-                      {s.name.note && <div style={{fontSize:10,color:"#f5d020",marginTop:5,lineHeight:1.3}}>📋 {s.name.note}</div>}
+                      {s.name.note && <div style={{fontSize:10,color:"#f5d020",marginTop:5,lineHeight:1.3}}><ClipboardListIcon /> {s.name.note}</div>}
                     </button>
                   ))}
                 </div>
@@ -2028,14 +2098,14 @@ export default function App() {
             ) : (
               <div>
                 <div style={styles.backRow}>
-                  <button style={styles.backBtn} onClick={()=>setSelectedSupplier(null)}>← {t("뒤로","Zurück")}</button>
+                  <button style={styles.backBtn} onClick={()=>setSelectedSupplier(null)}><ArrowLeftIcon /> {t("뒤로","Zurück")}</button>
                   <div style={{...styles.supplierTag, background: selectedSupplier.color, color: inkOn(selectedSupplier.color)}}>
-                    {selectedSupplier.icon} {selectedSupplier.name[lang]}
+                    <SupplierIcon icon={selectedSupplier.icon} /> {selectedSupplier.name[lang]}
                   </div>
                 </div>
                 {selectedSupplier.name.note && (
                   <div style={{background:"#1e1c10",border:"1px solid #3a3416",borderRadius:8,padding:"7px 10px",marginBottom:12,fontSize:12,color:"#f5d020"}}>
-                    📋 {selectedSupplier.name.note}
+                    <ClipboardListIcon /> {selectedSupplier.name.note}
                   </div>
                 )}
                 <div style={styles.sectionTitle}>{t("수량 입력","Menge eingeben")}</div>
@@ -2050,7 +2120,7 @@ export default function App() {
                       });
                       setQuantities(valid);
                     }}>
-                      ↺ {t("지난 발주 불러오기","Letzte Bestellung laden")} ({new Date(lastOrder.date).toLocaleDateString(lang==="ko"?"ko-KR":"de-DE")})
+                      <RotateCcwIcon /> {t("지난 발주 불러오기","Letzte Bestellung laden")} ({new Date(lastOrder.date).toLocaleDateString(lang==="ko"?"ko-KR":"de-DE")})
                     </button>
                   );
                 })()}
@@ -2096,7 +2166,7 @@ export default function App() {
 
                 {totalItems > 0 && (
                   <div style={styles.previewBox}>
-                    <div style={styles.previewTitle}>📄 {t("발주서 미리보기","Vorschau")}</div>
+                    <div style={styles.previewTitle}><FileTextIcon /> {t("발주서 미리보기","Vorschau")}</div>
                     <pre style={styles.previewText}>
                       {buildOrderMessage(selectedSupplier, quantities, lang, currentUser.name, note)}
                     </pre>
@@ -2108,7 +2178,7 @@ export default function App() {
                     style={{...(totalItems>0 ? styles.primaryBtn : styles.disabledBtn), marginBottom:0}}
                     disabled={totalItems===0}
                     onClick={handleSubmitOrder}>
-                    📤 {t(`발주서 전송 (${totalItems}개 품목)`, `Bestellung senden (${totalItems} Artikel)`)}
+                    <SendIcon /> {t(`발주서 전송 (${totalItems}개 품목)`, `Bestellung senden (${totalItems} Artikel)`)}
                   </button>
                 </div>
               </div>
@@ -2118,7 +2188,7 @@ export default function App() {
 
         {page === "order" && submitted && (
           <div style={styles.successWrap}>
-            <div style={styles.successIcon}>✅</div>
+            <div style={{...styles.successIcon, color:"#4ade80"}}><CircleCheckIcon /></div>
             <div style={styles.successTitle}>{t("발주서 전송 완료!","Bestellung gesendet!")}</div>
             <div style={styles.successSub}>
               {t("사장님(Seungjae)께 WhatsApp으로 전달되었습니다.","Die Bestellung wurde per WhatsApp an Seungjae gesendet.")}
@@ -2150,27 +2220,27 @@ export default function App() {
                 <div key={order.id} style={{...styles.historyCard, borderLeft: `4px solid ${sup?.color||"#444"}`}}>
                   <div style={styles.historyTop}>
                     <div>
-                      <span style={styles.historySupplier}>{sup?.icon} {typeof order.supplierName === "object" ? order.supplierName[lang] : order.supplierName}</span>
+                      <span style={styles.historySupplier}>{sup && <SupplierIcon icon={sup.icon} />} {typeof order.supplierName === "object" ? order.supplierName[lang] : order.supplierName}</span>
                       <span style={{...styles.statusBadge, background: order.status==="sent"?"#059669":"#d97706"}}>
                         {order.status==="sent" ? t("전송완료","Gesendet") : t("대기중","Ausstehend")}
                       </span>
                     </div>
                     <div style={styles.historyDate}>{new Date(order.date).toLocaleDateString(lang==="ko"?"ko-KR":"de-DE")}</div>
                   </div>
-                  <div style={styles.historyStaff}>👤 {order.staffName}</div>
+                  <div style={styles.historyStaff}><UserIcon /> {order.staffName}</div>
                   <pre style={styles.historyMsg}>{order.message}</pre>
                   <div style={styles.historyActions}>
                     <button style={styles.copyBtn} onClick={()=>handleCopyMessage(order.message, order.id)}>
-                      {copiedMsg===order.id ? t("✅ 복사됨","✅ Kopiert") : t("📋 복사","📋 Kopieren")}
+                      {copiedMsg===order.id ? <><CheckIcon /> {t("복사됨","Kopiert")}</> : <><CopyIcon /> {t("복사","Kopieren")}</>}
                     </button>
                     {order.status==="pending" && currentUser.role==="owner" && (
                       <button style={styles.doneBtn} onClick={()=>handleMarkDone(order.id)}>
-                        {t("✓ 전송완료","✓ Gesendet")}
+                        <CheckIcon /> {t("전송완료","Gesendet")}
                       </button>
                     )}
                     {currentUser.role==="owner" && (
                       <button style={styles.deleteBtn} onClick={()=>handleDeleteOrder(order.id)}>
-                        {t("🗑 삭제","🗑 Löschen")}
+                        <Trash2Icon /> {t("삭제","Löschen")}
                       </button>
                     )}
                   </div>
@@ -2181,7 +2251,7 @@ export default function App() {
         )}
         {page === "settings" && currentUser.role === "owner" && (
           <div>
-            <div style={styles.sectionTitle}>⚙️ {t("설정","Einstellungen")}</div>
+            <div style={styles.sectionTitle}><SettingsIcon /> {t("설정","Einstellungen")}</div>
 
             {/* 탭 네비게이션 */}
             {settingsView !== "items" && (
@@ -2189,11 +2259,11 @@ export default function App() {
                 <button
                   style={settingsView==="list"?styles.navActive:styles.navBtn}
                   onClick={()=>setSettingsView("list")}
-                >📦 {t("공급업체","Lieferanten")}</button>
+                ><PackageIcon /> {t("공급업체","Lieferanten")}</button>
                 <button
                   style={settingsView==="staff"?styles.navActive:styles.navBtn}
                   onClick={()=>{ setSettingsView("staff"); loadStaff(); }}
-                >👥 {t("직원","Personal")}</button>
+                ><UsersIcon /> {t("직원","Personal")}</button>
               </div>
             )}
 
@@ -2203,7 +2273,7 @@ export default function App() {
                 {suppliers.map(s => (
                   <div key={s.id} style={{...styles.historyCard, display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8}}>
                     <div style={{display:"flex",alignItems:"center",gap:8}}>
-                      <span style={{fontSize:20}}>{s.icon}</span>
+                      <span style={{fontSize:20,color:readableOnDark(s.color)}}><SupplierIcon icon={s.icon} /></span>
                       <div>
                         <div style={{fontWeight:600,fontSize:13,color:"#e8e8f0"}}>{s.name[lang]}</div>
                         <div style={{fontSize:11,color:"#888"}}>{s.items.length}{t("개 품목","Artikel")}</div>
@@ -2213,23 +2283,33 @@ export default function App() {
                       <button style={styles.copyBtn} onClick={()=>{setEditingSupplier(s);setSettingsView("items");setNewItemForm({name_ko:"",name_de:"",unit:""});setSupplierNoteDraft(s.name.note||"");setNoteSaved(false);}}>
                         {t("품목 관리","Artikel")}
                       </button>
-                      <button style={{...styles.copyBtn,background:"#2a1a1a",color:"#e87a7a"}} onClick={()=>{
+                      <button aria-label={t("삭제","Löschen")} style={{...styles.copyBtn,background:"#2a1a1a",color:"#e87a7a"}} onClick={()=>{
                         if(window.confirm(t("삭제하시겠습니까?","Löschen?"))) {
                           setSuppliers(prev=>prev.filter(x=>x.id!==s.id));
                           supabase.from("suppliers").delete().eq("id",s.id).then(({error})=>{ if(error) console.error("Supabase supplier delete error:",error); });
                         }
-                      }}>✕</button>
+                      }}><XIcon /></button>
                     </div>
                   </div>
                 ))}
                 <div style={{...styles.historyCard,marginTop:16}}>
-                  <div style={{fontWeight:600,fontSize:13,color:"#e8e8f0",marginBottom:10}}>➕ {t("새 공급업체 추가","Neuer Lieferant")}</div>
+                  <div style={{fontWeight:600,fontSize:13,color:"#e8e8f0",marginBottom:10}}><PlusIcon /> {t("새 공급업체 추가","Neuer Lieferant")}</div>
                   <input style={{...styles.input,marginBottom:6}} placeholder={t("공급업체명 (한국어)","Name (Koreanisch)")} value={newSupplierForm.name_ko} onChange={e=>setNewSupplierForm(p=>({...p,name_ko:e.target.value}))} />
                   <input style={{...styles.input,marginBottom:6}} placeholder="Name (Deutsch)" value={newSupplierForm.name_de} onChange={e=>setNewSupplierForm(p=>({...p,name_de:e.target.value}))} />
-                  <div style={{display:"flex",gap:6,marginBottom:6}}>
-                    <input style={{...styles.input,flex:1,margin:0}} placeholder={t("아이콘","Icon")} value={newSupplierForm.icon} onChange={e=>setNewSupplierForm(p=>({...p,icon:e.target.value}))} />
-                    <input style={{...styles.input,flex:1,margin:0}} placeholder="Color #hex" value={newSupplierForm.color} onChange={e=>setNewSupplierForm(p=>({...p,color:e.target.value}))} />
+                  <div role="radiogroup" aria-label={t("아이콘","Icon")} style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:6}}>
+                    {SUPPLIER_ICONS.map(([key, Icon, ko, de]) => {
+                      const on = newSupplierForm.icon === key;
+                      return (
+                        <button key={key} type="button" role="radio" aria-checked={on} aria-label={t(ko, de)} title={t(ko, de)}
+                          onClick={()=>setNewSupplierForm(p=>({...p,icon:key}))}
+                          style={{width:40,height:40,borderRadius:8,cursor:"pointer",fontSize:20,display:"flex",alignItems:"center",justifyContent:"center",
+                            background:on?"#863bff":"#0f0f18",color:on?"#fff":"#e8e8f0",border:`1px solid ${on?"#863bff":"#2a2a3e"}`}}>
+                          <Icon />
+                        </button>
+                      );
+                    })}
                   </div>
+                  <input style={{...styles.input,marginBottom:6}} placeholder="Color #hex" value={newSupplierForm.color} onChange={e=>setNewSupplierForm(p=>({...p,color:e.target.value}))} />
                   <select style={{...styles.input,marginBottom:8}} value={newSupplierForm.channel} onChange={e=>setNewSupplierForm(p=>({...p,channel:e.target.value}))}>
                     <option value="whatsapp">WhatsApp</option>
                     <option value="kakao">KakaoTalk</option>
@@ -2256,12 +2336,12 @@ export default function App() {
 
             {settingsView === "items" && editingSupplier && (
               <>
-                <button style={styles.backBtn} onClick={()=>setSettingsView("list")}>← {t("목록으로","Zurück")}</button>
+                <button style={styles.backBtn} onClick={()=>setSettingsView("list")}><ArrowLeftIcon /> {t("목록으로","Zurück")}</button>
                 <div style={{fontWeight:700,fontSize:15,color:readableOnDark(editingSupplier.color),margin:"12px 0 8px"}}>
-                  {editingSupplier.icon} {editingSupplier.name[lang]}
+                  <SupplierIcon icon={editingSupplier.icon} /> {editingSupplier.name[lang]}
                 </div>
                 <div style={{...styles.historyCard,marginBottom:10}}>
-                  <div style={{fontWeight:600,fontSize:12,color:"#e8e8f0",marginBottom:6}}>📋 {t("발주 안내 (발주 화면에 표시)","Bestellhinweis (wird beim Bestellen angezeigt)")}</div>
+                  <div style={{fontWeight:600,fontSize:12,color:"#e8e8f0",marginBottom:6}}><ClipboardListIcon /> {t("발주 안내 (발주 화면에 표시)","Bestellhinweis (wird beim Bestellen angezeigt)")}</div>
                   <input
                     style={{...styles.input,marginBottom:6}}
                     placeholder={t("예: 화·금 주문 → 익일 배송","z.B. Di & Fr bestellen → Lieferung am nächsten Tag")}
@@ -2275,7 +2355,7 @@ export default function App() {
                     setSuppliers(prev=>prev.map(s=>s.id===editingSupplier.id?updatedSup:s));
                     syncSupplierToDb(updatedSup);
                     setNoteSaved(true);
-                  }}>{noteSaved ? t("✅ 저장됨","✅ Gespeichert") : t("저장","Speichern")}</button>
+                  }}>{noteSaved ? <><CheckIcon /> {t("저장됨","Gespeichert")}</> : t("저장","Speichern")}</button>
                 </div>
                 {suppliers.find(s=>s.id===editingSupplier.id)?.items.map((item,idx) => (
                   <div key={item.id} style={{...styles.itemRow, marginBottom:6}}>
@@ -2305,21 +2385,21 @@ export default function App() {
                         </div>
                         <div style={{display:"flex",gap:5}}>
                           <button style={styles.copyBtn} onClick={()=>setEditingItem({...item})}>{t("수정","Edit")}</button>
-                          <button style={{...styles.copyBtn,background:"#2a1a1a",color:"#e87a7a"}} onClick={()=>{
+                          <button aria-label={t("삭제","Löschen")} style={{...styles.copyBtn,background:"#2a1a1a",color:"#e87a7a"}} onClick={()=>{
                             const foundSup2 = suppliers.find(s=>s.id===editingSupplier.id);
                             if (!foundSup2) return;
                             const updatedSup = {...foundSup2};
                             updatedSup.items = updatedSup.items.filter(it=>it.id!==item.id);
                             setSuppliers(prev=>prev.map(s=>s.id===editingSupplier.id?updatedSup:s));
                             syncSupplierToDb(updatedSup);
-                          }}>✕</button>
+                          }}><XIcon /></button>
                         </div>
                       </>
                     )}
                   </div>
                 ))}
                 <div style={{...styles.historyCard,marginTop:12}}>
-                  <div style={{fontWeight:600,fontSize:13,color:"#e8e8f0",marginBottom:8}}>➕ {t("품목 추가","Artikel hinzufügen")}</div>
+                  <div style={{fontWeight:600,fontSize:13,color:"#e8e8f0",marginBottom:8}}><PlusIcon /> {t("품목 추가","Artikel hinzufügen")}</div>
                   <input style={{...styles.input,marginBottom:5}} placeholder={t("품목명 (한국어)","Name (Koreanisch)")} value={newItemForm.name_ko} onChange={e=>setNewItemForm(p=>({...p,name_ko:e.target.value}))} />
                   <input style={{...styles.input,marginBottom:5}} placeholder="Name (Deutsch)" value={newItemForm.name_de} onChange={e=>setNewItemForm(p=>({...p,name_de:e.target.value}))} />
                   <input style={{...styles.input,marginBottom:8}} placeholder={t("단위 (예: kg, Kiste)","Einheit (z.B. kg, Kiste)")} value={newItemForm.unit} onChange={e=>setNewItemForm(p=>({...p,unit:e.target.value}))} />
@@ -2351,19 +2431,19 @@ export default function App() {
                       <div>
                         <div style={{fontWeight:600,fontSize:13,color:"#e8e8f0"}}>{user.name}</div>
                         <div style={{fontSize:11,color:"#888"}}>{user.email}</div>
-                        {user.role === "owner" && <div style={{fontSize:10,color:"#f5a623",marginTop:2}}>👑 {t("관리자","Admin")}</div>}
+                        {user.role === "owner" && <div style={{fontSize:10,color:"#f5a623",marginTop:2}}><CrownIcon /> {t("관리자","Admin")}</div>}
                       </div>
                       {user.role !== "owner" && (
                         <button
-                          style={{...styles.copyBtn,background:"#2a1a1a",color:"#e87a7a"}}
+                          aria-label={t("삭제","Löschen")} style={{...styles.copyBtn,background:"#2a1a1a",color:"#e87a7a"}}
                           onClick={()=>handleRemoveStaff(user)}
-                        >✕</button>
+                        ><XIcon /></button>
                       )}
                     </div>
                   ))
                 )}
                 <div style={{...styles.historyCard,marginTop:16}}>
-                  <div style={{fontWeight:600,fontSize:13,color:"#e8e8f0",marginBottom:10}}>➕ {t("새 직원 추가","Neuen Mitarbeiter hinzufügen")}</div>
+                  <div style={{fontWeight:600,fontSize:13,color:"#e8e8f0",marginBottom:10}}><PlusIcon /> {t("새 직원 추가","Neuen Mitarbeiter hinzufügen")}</div>
                   <input
                     style={{...styles.input,marginBottom:6}}
                     placeholder={t("이름","Name")}
