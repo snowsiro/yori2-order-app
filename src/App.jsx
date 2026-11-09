@@ -8,6 +8,33 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // 웹 푸시 공개키 (비밀키는 Supabase edge function secrets에만 보관)
 const VAPID_PUBLIC_KEY = "BB6wWCFQr9AVrGNXoxQW21DXTy12xJLWo8DZQmDTC9YaaqpkMs67ON8yyNm9BpxSLMorqs5ciKXjSS3Qu6UHZQ8";
 
+// 공급처 색은 관리자가 고르는 색이라, 그 위·그 색으로 쓰는 글자는 대비를 계산한다 (DESIGN.md).
+function luminance(hex) {
+  const h = String(hex || "").replace("#", "");
+  const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+  const [r, g, b] = [0, 2, 4].map((i) => {
+    const v = parseInt(full.slice(i, i + 2), 16) / 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+// 색 배경 위 글자: 밝은 배경이면 검정, 어두운 배경이면 흰색
+const inkOn = (bg) => (luminance(bg) > 0.179 ? "#000" : "#fff");
+// 어두운 화면에 공급처 색으로 쓰는 글자: 가장 밝은 카드 면(#2a2a3e)에서 4.5:1이 될 때까지 흰색 쪽으로 섞는다
+function readableOnDark(hex) {
+  const h = String(hex || "").replace("#", "");
+  const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+  const rgb = [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16));
+  if (rgb.some(Number.isNaN)) return hex;
+  const bg = luminance("#2a2a3e");
+  for (let t = 0; t <= 1; t += 0.1) {
+    const mix = rgb.map((v) => Math.round(v + (255 - v) * t));
+    const out = "#" + mix.map((v) => v.toString(16).padStart(2, "0")).join("");
+    if ((luminance(out) + 0.05) / (bg + 0.05) >= 4.5) return out;
+  }
+  return "#ffffff";
+}
+
 function urlBase64ToUint8Array(base64String) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -860,7 +887,7 @@ export default function App() {
       );
       case "bulleted_list_item": return (
         <div key={block.id} style={{fontSize:13,color:"#b0b0c8",lineHeight:1.6,marginBottom:4,paddingLeft:16}}>
-          <div style={{display:"flex",gap:6}}><span style={{color:"#555"}}>•</span><span>{rt(block.bulleted_list_item.rich_text)}</span></div>
+          <div style={{display:"flex",gap:6}}><span style={{color:"#999"}}>•</span><span>{rt(block.bulleted_list_item.rich_text)}</span></div>
           {block._children?.map(c => renderNotionBlock(c))}
         </div>
       );
@@ -879,7 +906,7 @@ export default function App() {
           onClick={() => loadManualPage(block.id, block.child_page.title, {id: currentManualId || MANUAL_ROOT_ID, title: manualTitle, viewType: "blocks"})}
           style={{...styles.historyCard, display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8, cursor:"pointer"}}>
           <div style={{fontWeight:600,fontSize:13,color:"#e8e8f0"}}>📄 {block.child_page.title}</div>
-          <div style={{color:"#555",fontSize:18}}>›</div>
+          <div style={{color:"#999",fontSize:18}}>›</div>
         </div>
       );
       case "child_database": if (MANUAL_HIDDEN_IDS.includes(block.id)) return null;
@@ -888,7 +915,7 @@ export default function App() {
           onClick={() => loadDatabase(block.id, block.child_database.title, {id: currentManualId || MANUAL_ROOT_ID, title: manualTitle, viewType: "blocks"})}
           style={{...styles.historyCard, display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8, cursor:"pointer"}}>
           <div style={{fontWeight:600,fontSize:13,color:"#e8e8f0"}}>🗄️ {block.child_database.title}</div>
-          <div style={{color:"#555",fontSize:18}}>›</div>
+          <div style={{color:"#999",fontSize:18}}>›</div>
         </div>
       );
       case "callout": return (
@@ -905,15 +932,15 @@ export default function App() {
               style={{maxWidth:"100%",borderRadius:8,border:"1px solid #2a2a3e"}}
               onError={e => { e.target.style.display="none"; e.target.nextSibling.style.display="block"; }}
             />
-            <div style={{display:"none",fontSize:12,color:"#666",padding:8}}>🖼️ 이미지를 불러올 수 없습니다</div>
-            {caption && <div style={{fontSize:11,color:"#666",marginTop:4}}>{caption}</div>}
+            <div style={{display:"none",fontSize:12,color:"#999",padding:8}}>🖼️ 이미지를 불러올 수 없습니다</div>
+            {caption && <div style={{fontSize:11,color:"#999",marginTop:4}}>{caption}</div>}
           </div>
         ) : null;
       }
       case "toggle": return (
         <details key={block.id} style={{marginBottom:6}}>
           <summary style={{fontSize:13,color:"#b0b0c8",cursor:"pointer",padding:"2px 0",listStyle:"none",display:"flex",alignItems:"center",gap:6}}>
-            <span style={{color:"#555",fontSize:10}}>▶</span>
+            <span style={{color:"#999",fontSize:10}}>▶</span>
             <span>{rt(block.toggle?.rich_text)}</span>
           </summary>
           <div style={{paddingLeft:16,marginTop:4}}>
@@ -974,7 +1001,7 @@ export default function App() {
             onClick={() => loadManualPage(lpId, "페이지", {id: currentManualId || MANUAL_ROOT_ID, title: manualTitle, viewType: "blocks"})}
             style={{...styles.historyCard, display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8, cursor:"pointer"}}>
             <div style={{fontWeight:600,fontSize:13,color:"#7b8cde"}}>🔗 {block.link_to_page?.page_id ? "페이지 링크" : "데이터베이스 링크"}</div>
-            <div style={{color:"#555",fontSize:18}}>›</div>
+            <div style={{color:"#999",fontSize:18}}>›</div>
           </div>
         );
       }
@@ -1670,7 +1697,7 @@ export default function App() {
                   </div>
                   <div style={{fontSize:12,color:"#888",marginTop:2}}>{item.sub}</div>
                 </div>
-                {item.action && <div style={{color:"#555",fontSize:18}}>›</div>}
+                {item.action && <div style={{color:"#999",fontSize:18}}>›</div>}
               </div>
             ))}
             </div>
@@ -1694,14 +1721,14 @@ export default function App() {
               </div>
             )}
             {announcements.length === 0 && (
-              <div style={{color:"#555",textAlign:"center",padding:40,fontSize:13}}>{t("등록된 공지사항이 없습니다.","Keine Ankündigungen.")}</div>
+              <div style={{color:"#999",textAlign:"center",padding:40,fontSize:13}}>{t("등록된 공지사항이 없습니다.","Keine Ankündigungen.")}</div>
             )}
             {announcements.map(a => (
               <div key={a.id} style={{background:"#1e1e2e",border:"1px solid #2a2a3e",borderRadius:12,padding:"14px 16px",marginBottom:10}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
                   <div style={{fontSize:11,color:"#888"}}>{a.author_name} · {new Date(a.created_at).toLocaleDateString(lang==="ko"?"ko-KR":"de-DE",{month:"short",day:"numeric"})} {new Date(a.created_at).toLocaleTimeString(lang==="ko"?"ko-KR":"de-DE",{hour:"2-digit",minute:"2-digit"})}</div>
                   {currentUser.role === "owner" && (
-                    <button onClick={()=>handleDeleteAnnounce(a.id)} style={{background:"transparent",border:"none",color:"#555",cursor:"pointer",fontSize:16,padding:0,lineHeight:1}}>✕</button>
+                    <button onClick={()=>handleDeleteAnnounce(a.id)} style={{background:"transparent",border:"none",color:"#999",cursor:"pointer",fontSize:16,padding:0,lineHeight:1}}>✕</button>
                   )}
                 </div>
                 <div style={{fontSize:13,color:"#c8c8d8",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{a.content}</div>
@@ -1725,7 +1752,7 @@ export default function App() {
               </button>
             </div>
             {dailyNotes.length === 0 && (
-              <div style={{color:"#555",textAlign:"center",padding:40,fontSize:13}}>{t("등록된 특이사항이 없습니다.","Keine Notizen vorhanden.")}</div>
+              <div style={{color:"#999",textAlign:"center",padding:40,fontSize:13}}>{t("등록된 특이사항이 없습니다.","Keine Notizen vorhanden.")}</div>
             )}
             {Object.entries(
               dailyNotes.reduce((acc, n) => { if (!acc[n.work_date]) acc[n.work_date] = []; acc[n.work_date].push(n); return acc; }, {})
@@ -1741,7 +1768,7 @@ export default function App() {
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
                         <div style={{fontSize:11,color:"#888"}}>{n.author_name} · {new Date(n.created_at).toLocaleTimeString(lang==="ko"?"ko-KR":"de-DE",{hour:"2-digit",minute:"2-digit"})}</div>
                         {(currentUser.role === "owner" || currentUser.name === n.author_name) && (
-                          <button onClick={()=>handleDeleteNote(n.id)} style={{background:"transparent",border:"none",color:"#555",cursor:"pointer",fontSize:16,padding:0,lineHeight:1}}>✕</button>
+                          <button onClick={()=>handleDeleteNote(n.id)} style={{background:"transparent",border:"none",color:"#999",cursor:"pointer",fontSize:16,padding:0,lineHeight:1}}>✕</button>
                         )}
                       </div>
                       <div style={{fontSize:13,color:"#c8c8d8",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{n.content}</div>
@@ -1800,7 +1827,7 @@ export default function App() {
                 <div>
                   {/* 검색창 */}
                   <div style={{position:"relative", marginBottom:10}}>
-                    <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"#555",fontSize:14}}>🔍</span>
+                    <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"#999",fontSize:14}}>🔍</span>
                     <input
                       value={dbSearch}
                       onChange={e => setDbSearch(e.target.value)}
@@ -1833,7 +1860,7 @@ export default function App() {
 
                   {/* 결과 목록 */}
                   {filtered.length === 0 && (
-                    <div style={{color:"#555",textAlign:"center",padding:20,fontSize:13}}>{t("검색 결과 없음","Keine Ergebnisse")}</div>
+                    <div style={{color:"#999",textAlign:"center",padding:20,fontSize:13}}>{t("검색 결과 없음","Keine Ergebnisse")}</div>
                   )}
                   {filtered.map(({ page, title, icon, categories }) => (
                     <div key={page.id}
@@ -1849,7 +1876,7 @@ export default function App() {
                           </div>
                         )}
                       </div>
-                      <div style={{color:"#555",fontSize:18}}>›</div>
+                      <div style={{color:"#999",fontSize:18}}>›</div>
                     </div>
                   ))}
                 </div>
@@ -1966,7 +1993,7 @@ export default function App() {
                     );
                   })}
 
-                  <div style={{marginTop:14,fontSize:11,color:"#555",display:"flex",gap:12,flexWrap:"wrap"}}>
+                  <div style={{marginTop:14,fontSize:11,color:"#999",display:"flex",gap:12,flexWrap:"wrap"}}>
                     {[["O","#7ab8f5",t("하루종일","Ganzen Tag")],["N","#c89eff",t("오후","Nacht")],["F","#7fd88a",t("오전","Früh")],["U","#f5d020",t("휴가","Urlaub")]].map(([k,c,l])=>(
                       <span key={k}><span style={{color:c,fontWeight:700}}>{k}</span> {l}</span>
                     ))}
@@ -2002,7 +2029,7 @@ export default function App() {
               <div>
                 <div style={styles.backRow}>
                   <button style={styles.backBtn} onClick={()=>setSelectedSupplier(null)}>← {t("뒤로","Zurück")}</button>
-                  <div style={{...styles.supplierTag, background: selectedSupplier.color}}>
+                  <div style={{...styles.supplierTag, background: selectedSupplier.color, color: inkOn(selectedSupplier.color)}}>
                     {selectedSupplier.icon} {selectedSupplier.name[lang]}
                   </div>
                 </div>
@@ -2230,7 +2257,7 @@ export default function App() {
             {settingsView === "items" && editingSupplier && (
               <>
                 <button style={styles.backBtn} onClick={()=>setSettingsView("list")}>← {t("목록으로","Zurück")}</button>
-                <div style={{fontWeight:700,fontSize:15,color:editingSupplier.color,margin:"12px 0 8px"}}>
+                <div style={{fontWeight:700,fontSize:15,color:readableOnDark(editingSupplier.color),margin:"12px 0 8px"}}>
                   {editingSupplier.icon} {editingSupplier.name[lang]}
                 </div>
                 <div style={{...styles.historyCard,marginBottom:10}}>
@@ -2404,7 +2431,7 @@ const styles = {
   itemList: { display:"flex", flexDirection:"column", gap:8, marginBottom:14 },
   itemRow: { display:"flex", alignItems:"center", justifyContent:"space-between", borderRadius:10, padding:"11px 13px", border:"1px solid #2a2a3a" },
   itemName: { display:"flex", flexDirection:"column", gap:2 },
-  itemUnit: { fontSize:11, color:"#666" },
+  itemUnit: { fontSize:11, color:"#999" },
   qtyControl: { display:"flex", alignItems:"center", gap:6 },
   qtyBtn: { background:"#2a2a3a", border:"none", color:"#e8e8f0", borderRadius:8, width:30, height:30, cursor:"pointer", fontSize:16 },
   qtyInput: { background:"#0f0f18", border:"1px solid #333", borderRadius:8, color:"#e8e8f0", width:48, textAlign:"center", padding:"5px 2px", fontSize:14 },
@@ -2417,12 +2444,12 @@ const styles = {
   successIcon: { fontSize:56, marginBottom:14 },
   successTitle: { fontSize:20, fontWeight:700, color:"#4ade80", marginBottom:8 },
   successSub: { color:"#888", fontSize:13, marginBottom:22 },
-  emptyState: { textAlign:"center", color:"#555", padding:"40px 0" },
+  emptyState: { textAlign:"center", color:"#999", padding:"40px 0" },
   historyCard: { background:"#1a1a2e", borderRadius:10, padding:13, marginBottom:10, border:"1px solid #2a2a3a" },
   historyTop: { display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:5 },
   historySupplier: { fontSize:13, fontWeight:600, color:"#e8e8f0" },
   statusBadge: { borderRadius:8, padding:"2px 7px", fontSize:11, fontWeight:600, color:"#fff", marginLeft:7 },
-  historyDate: { fontSize:11, color:"#666" },
+  historyDate: { fontSize:11, color:"#999" },
   historyStaff: { fontSize:11, color:"#888", marginBottom:7 },
   historyMsg: { background:"#0f0f18", borderRadius:7, padding:9, fontSize:11, color:"#a8a8c8", margin:"7px 0", whiteSpace:"pre-wrap", fontFamily:"monospace" },
   historyActions: { display:"flex", gap:7, marginTop:7 },
